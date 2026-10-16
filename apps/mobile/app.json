@@ -1,0 +1,29 @@
+{
+  "expo": {
+    "name": "Fresh Basket",
+    "slug": "fresh-basket",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "freshbasket",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#16a34a"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.freshbasket.app"
+    },
+    "android": {
+      "package": "com.freshbasket.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#16a34a"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-notifications"]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "name": "grocery-app",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "npm@10.9.2",
+  "workspaces": [
+    "apps/web",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "turbo run dev",
+    "dev:web": "npm run dev -w web",
+    "dev:mobile": "npm run dev -w mobile",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "db:generate": "npm run generate -w database",
+    "db:migrate": "npm run migrate -w database",
+    "db:push": "npm run push -w database",
+    "db:seed": "npm run seed -w database",
+    "db:studio": "npm run studio -w database"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.10",
+    "turbo": "^2.11.8",
+    "typescript": "^5"
+  }
+}
