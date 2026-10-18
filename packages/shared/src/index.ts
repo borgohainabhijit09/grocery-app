@@ -4,6 +4,7 @@ export * from "./utils/geo";
 export * from "./utils/slug";
 export * from "./utils/order-number";
 export * from "./utils/pricing";
+export * from "./utils/stock";
 
 export * from "./schemas/common";
 export * from "./schemas/auth";

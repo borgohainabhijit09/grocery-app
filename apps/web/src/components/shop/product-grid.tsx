@@ -1,7 +1,13 @@
 import { ProductCard } from "@/components/product-card";
 import type { CatalogItem } from "@/lib/catalog";
 
-export function ProductGrid({ items }: { items: CatalogItem[] }) {
+export function ProductGrid({
+  items,
+  isLoggedIn = false,
+}: {
+  items: CatalogItem[];
+  isLoggedIn?: boolean;
+}) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border border-dashed p-12 text-center">
@@ -16,8 +22,8 @@ export function ProductGrid({ items }: { items: CatalogItem[] }) {
 
   return (
     <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4">
-      {items.map((p) => (
-        <ProductCard key={p.id} product={p} />
+      {items.map((p, i) => (
+        <ProductCard key={p.id} product={p} isLoggedIn={isLoggedIn} index={i} />
       ))}
     </div>
   );

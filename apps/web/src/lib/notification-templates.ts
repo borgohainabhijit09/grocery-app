@@ -40,6 +40,7 @@ const SUBJECTS: Record<string, (o?: OrderContext | null) => string> = {
   order_cancelled: (o) => `Order ${o?.orderNumber ?? ""} cancelled`,
   order_assigned: (o) => `Delivery assigned for order ${o?.orderNumber ?? ""}`,
   order_status_changed: (o) => `Order ${o?.orderNumber ?? ""} — ${o?.statusLabel ?? "updated"}`,
+  back_in_stock: () => "An item on your list is back in stock",
 };
 
 const COPY: Record<string, { heading: string; body: string }> = {
@@ -52,7 +53,27 @@ const COPY: Record<string, { heading: string; body: string }> = {
   order_cancelled: { heading: "Order cancelled", body: "Your order has been cancelled. If you paid online, any refund will be processed shortly." },
   order_assigned: { heading: "New delivery assigned", body: "A new delivery has been assigned to you. Open the partner portal for details." },
   order_status_changed: { heading: "Order update", body: "There is a new update on your order." },
+  back_in_stock: { heading: "Back in stock", body: "Good news — an item you asked about is available again. Order now before it sells out." },
 };
+
+export type RenderedPush = {
+  title: string;
+  body: string;
+};
+
+/** Compact title/body for a device push notification. */
+export function renderPush(ctx: RenderContext): RenderedPush {
+  const { template, order } = ctx;
+  const copy =
+    COPY[template] ?? { heading: "Order update", body: "There is a new update on your order." };
+  const title = (SUBJECTS[template] ?? ((o) => `Update for order ${o?.orderNumber ?? ""}`))(order);
+  const suffix = order ? ` Order ${order.orderNumber} · ${order.statusLabel || ""}`.trimEnd() : "";
+  const product =
+    typeof ctx.payload.productName === "string" && ctx.payload.productName
+      ? ` ${ctx.payload.productName}`
+      : "";
+  return { title, body: `${copy.body}${suffix}${product}` };
+}
 
 function esc(value: unknown): string {
   return String(value ?? "")
@@ -84,6 +105,9 @@ export function renderNotification(ctx: RenderContext): RenderedNotification {
     if (order.partnerName) lines.push(`Delivery partner: ${order.partnerName}`);
   }
 
+  if (typeof payload.productName === "string" && payload.productName) {
+    lines.push("", `Item: ${payload.productName}`);
+  }
   if (typeof payload.reason === "string" && payload.reason) {
     lines.push("", `Reason: ${payload.reason}`);
   }
@@ -109,7 +133,11 @@ export function renderNotification(ctx: RenderContext): RenderedNotification {
             .join("<br/>")}</td></tr>
           <tr><td style="padding-top:8px">
             <a href="${esc(ctx.link)}" style="display:inline-block;background:#16a34a;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:bold">${esc(
-              template === "order_assigned" ? "Open partner portal" : "Track your order"
+              template === "order_assigned"
+                ? "Open partner portal"
+                : template === "back_in_stock"
+                  ? "View item"
+                  : "Track your order"
             )}</a>
           </td></tr>
         </table>

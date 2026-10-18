@@ -158,3 +158,43 @@ export async function toggleProductAction(
     return { ok: false, ...toDbError(err) };
   }
 }
+
+export type ProductBulkAction =
+  | "activate"
+  | "deactivate"
+  | "feature"
+  | "unfeature"
+  | "delete";
+
+const BULK_DATA: Record<
+  Exclude<ProductBulkAction, "delete">,
+  { isActive?: boolean; isFeatured?: boolean }
+> = {
+  activate: { isActive: true },
+  deactivate: { isActive: false },
+  feature: { isFeatured: true },
+  unfeature: { isFeatured: false },
+};
+
+export async function bulkProductAction(
+  ids: string[],
+  action: ProductBulkAction
+): Promise<FormState> {
+  await requireStaff();
+  if (ids.length === 0) return { error: "No products selected." };
+
+  try {
+    if (action === "delete") {
+      await prisma.product.deleteMany({ where: { id: { in: ids } } });
+    } else {
+      await prisma.product.updateMany({
+        where: { id: { in: ids } },
+        data: BULK_DATA[action],
+      });
+    }
+    revalidate();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, ...toDbError(err) };
+  }
+}

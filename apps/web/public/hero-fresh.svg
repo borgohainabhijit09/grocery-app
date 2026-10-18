@@ -1,0 +1,94 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Fresh groceries illustration">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#eefaf2"/>
+      <stop offset="0.5" stop-color="#d6f1df"/>
+      <stop offset="1" stop-color="#b6e3c6"/>
+    </linearGradient>
+    <radialGradient id="glowA" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#8fdfaf" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#8fdfaf" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowB" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#f8e79b" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#f8e79b" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glowC" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="basket" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#cf9250"/>
+      <stop offset="1" stop-color="#965a24"/>
+    </linearGradient>
+    <linearGradient id="leaf" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8fce5c"/>
+      <stop offset="1" stop-color="#4f9f3a"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="26"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#bg)"/>
+
+  <!-- soft bokeh -->
+  <circle cx="1270" cy="190" r="300" fill="url(#glowA)" filter="url(#soft)"/>
+  <circle cx="1480" cy="700" r="330" fill="url(#glowB)" filter="url(#soft)"/>
+  <circle cx="250" cy="720" r="300" fill="url(#glowA)" filter="url(#soft)"/>
+  <circle cx="700" cy="120" r="220" fill="url(#glowC)" filter="url(#soft)"/>
+
+  <!-- scattered produce, right side -->
+  <g opacity="0.95">
+    <!-- basket -->
+    <path d="M 985 610 Q 1005 835 1185 838 Q 1365 835 1385 610 Z" fill="url(#basket)"/>
+    <g stroke="#7c4718" stroke-opacity="0.35" stroke-width="6" fill="none">
+      <path d="M 1012 700 Q 1185 760 1358 700"/>
+      <path d="M 1030 775 Q 1185 820 1340 775"/>
+      <path d="M 1015 610 Q 1185 690 1355 610"/>
+    </g>
+    <ellipse cx="1185" cy="612" rx="205" ry="44" fill="#bd8143"/>
+    <ellipse cx="1185" cy="612" rx="180" ry="33" fill="#8b5322"/>
+
+    <!-- fruits piled in basket -->
+    <circle cx="1042" cy="590" r="64" fill="#e25b42"/>
+    <ellipse cx="1022" cy="568" rx="20" ry="12" fill="#ffffff" opacity="0.35"/>
+    <circle cx="1148" cy="556" r="66" fill="#f0a23c"/>
+    <ellipse cx="1126" cy="534" rx="20" ry="12" fill="#ffffff" opacity="0.35"/>
+    <circle cx="1258" cy="576" r="64" fill="#7ec24a"/>
+    <ellipse cx="1238" cy="554" rx="19" ry="11" fill="#ffffff" opacity="0.35"/>
+    <circle cx="1336" cy="612" r="46" fill="#f3d24b"/>
+    <circle cx="1168" cy="498" r="54" fill="#8d6cc0"/>
+    <circle cx="1064" cy="512" r="46" fill="#ef6a4c"/>
+    <circle cx="1296" cy="512" r="38" fill="#9fd35a"/>
+    <circle cx="1216" cy="470" r="40" fill="#f2b23c"/>
+
+    <!-- leaves on fruit -->
+    <path d="M 1042 526 q 26 -34 58 -30 q -10 34 -44 44 z" fill="url(#leaf)"/>
+    <path d="M 1168 444 q 22 -30 52 -26 q -8 30 -40 38 z" fill="url(#leaf)"/>
+    <path d="M 1216 430 q 20 -26 46 -22 q -6 26 -34 33 z" fill="url(#leaf)"/>
+  </g>
+
+  <!-- floating leaves + berries -->
+  <g fill="url(#leaf)" opacity="0.9">
+    <path d="M 1420 300 q 40 -60 106 -54 q -14 62 -84 78 z"/>
+    <path d="M 1330 380 q 26 -40 70 -36 q -10 42 -56 52 z"/>
+    <path d="M 940 260 q -30 -46 -80 -40 q 12 48 64 60 z"/>
+    <path d="M 840 340 q -20 -32 -56 -28 q 8 34 44 44 z"/>
+  </g>
+  <g fill="#e25b42" opacity="0.85">
+    <circle cx="1420" cy="430" r="14"/>
+    <circle cx="1452" cy="452" r="10"/>
+    <circle cx="880" cy="250" r="12"/>
+  </g>
+
+  <!-- subtle dotted texture -->
+  <g fill="#3f8f4f" opacity="0.08">
+    <circle cx="180" cy="160" r="6"/>
+    <circle cx="240" cy="210" r="6"/>
+    <circle cx="300" cy="160" r="6"/>
+    <circle cx="1500" cy="180" r="6"/>
+    <circle cx="1540" cy="240" r="6"/>
+    <circle cx="1470" cy="250" r="6"/>
+  </g>
+</svg>

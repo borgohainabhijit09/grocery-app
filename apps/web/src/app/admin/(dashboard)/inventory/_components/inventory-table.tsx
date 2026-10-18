@@ -4,14 +4,27 @@ import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, Search } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import {
   adjustStockAction,
+  bulkSetStockAction,
   setStockAction,
   setThresholdAction,
 } from "@/app/actions/admin/inventory";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 
 export type InventoryRow = {
   variantId: string;
@@ -37,7 +50,8 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [drafts, setDrafts] = useState<Record<string, string>>({});
-  const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkValue, setBulkValue] = useState("");
   const [pending, startTransition] = useTransition();
 
   const filtered = useMemo(() => {
@@ -63,12 +77,30 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
     [rows]
   );
 
-  function run(fn: () => Promise<{ ok?: boolean; error?: string }>) {
-    setError(null);
+  const allSelected = filtered.length > 0 && filtered.every((r) => selected.has(r.variantId));
+
+  function run(fn: () => Promise<{ ok?: boolean; error?: string }>, success?: string) {
     startTransition(async () => {
       const res = await fn();
-      if (!res.ok) setError(res.error ?? "Update failed.");
-      else router.refresh();
+      if (!res.ok) {
+        toast({ title: "Update failed", variant: "error", description: res.error });
+      } else {
+        if (success) toast({ title: success, variant: "success" });
+        router.refresh();
+      }
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(filtered.map((r) => r.variantId)));
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   }
 
@@ -77,18 +109,37 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
     if (raw === undefined) return;
     const qty = Number(raw);
     if (!Number.isFinite(qty) || qty < 0) {
-      setError("Enter a valid stock quantity.");
+      toast({ title: "Enter a valid stock quantity.", variant: "error" });
       return;
     }
     run(async () => {
       const res = await setStockAction({ variantId: row.variantId, stockQty: qty });
-      if (res.ok) setDrafts((d) => {
-        const next = { ...d };
-        delete next[row.variantId];
-        return next;
-      });
+      if (res.ok) {
+        setDrafts((d) => {
+          const next = { ...d };
+          delete next[row.variantId];
+          return next;
+        });
+      }
       return res;
-    });
+    }, "Stock updated");
+  }
+
+  function runBulk(mode: "set" | "add") {
+    const value = Number(bulkValue);
+    if (!Number.isFinite(value)) {
+      toast({ title: "Enter a valid number.", variant: "error" });
+      return;
+    }
+    const variantIds = [...selected];
+    run(async () => {
+      const res = await bulkSetStockAction({ variantIds, mode, value });
+      if (res.ok) {
+        setSelected(new Set());
+        setBulkValue("");
+      }
+      return res;
+    }, `${variantIds.length} variant(s) updated`);
   }
 
   return (
@@ -107,8 +158,8 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-56">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <div className="relative min-w-56 flex-1">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -131,37 +182,61 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
         </div>
       </div>
 
-      {error && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-      )}
+      {selected.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/40 px-3 py-2">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <Input
+            type="number"
+            inputMode="numeric"
+            value={bulkValue}
+            onChange={(e) => setBulkValue(e.target.value)}
+            placeholder="Quantity"
+            className="h-8 w-28"
+          />
+          <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("set")}>
+            Set to
+          </Button>
+          <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("add")}>
+            Add
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setSelected(new Set())}>
+            Clear
+          </Button>
+        </div>
+      ) : null}
 
-      <div className="overflow-hidden rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/40 text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Product</th>
-              <th className="px-4 py-2 font-medium">SKU</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Stock</th>
-              <th className="px-4 py-2 font-medium">Low-stock at</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-muted-foreground">
-                  Nothing to show.
-                </td>
-              </tr>
-            )}
-            {filtered.map((row) => {
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-10">
+              <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+            </TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>SKU</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Low-stock at</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filtered.length === 0 ? (
+            <TableEmpty colSpan={6}>Nothing to show.</TableEmpty>
+          ) : (
+            filtered.map((row) => {
               const status = statusOf(row);
               const draft = drafts[row.variantId];
               const value = draft ?? String(row.stockQty);
               const dirty = draft !== undefined && Number(draft) !== row.stockQty;
               return (
-                <tr key={row.variantId} className="border-t">
-                  <td className="px-4 py-2">
+                <TableRow key={row.variantId} data-state={selected.has(row.variantId) ? "selected" : undefined}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selected.has(row.variantId)}
+                      onCheckedChange={() => toggleOne(row.variantId)}
+                      aria-label={`Select ${row.productName}`}
+                    />
+                  </TableCell>
+                  <TableCell>
                     <Link
                       href={`/admin/products/${row.productId}`}
                       className="font-medium hover:text-primary"
@@ -172,18 +247,19 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                       {row.variantLabel}
                       {!row.isActive && " · hidden"}
                     </div>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">{row.sku ?? "—"}</td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.sku ?? "—"}</TableCell>
+                  <TableCell>
                     <Badge variant={status.variant}>{status.label}</Badge>
-                  </td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-1">
                       <Button
                         variant="outline"
                         size="icon-sm"
+                        aria-label="Decrease"
                         onClick={() =>
-                          run(() => adjustStockAction({ variantId: row.variantId, delta: -1 }))
+                          run(() => adjustStockAction({ variantId: row.variantId, delta: -1 }), "Stock updated")
                         }
                         disabled={pending || row.stockQty <= 0}
                       >
@@ -208,8 +284,9 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                       <Button
                         variant="outline"
                         size="icon-sm"
+                        aria-label="Increase"
                         onClick={() =>
-                          run(() => adjustStockAction({ variantId: row.variantId, delta: 1 }))
+                          run(() => adjustStockAction({ variantId: row.variantId, delta: 1 }), "Stock updated")
                         }
                         disabled={pending}
                       >
@@ -221,8 +298,8 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                         </Button>
                       )}
                     </div>
-                  </td>
-                  <td className="px-4 py-2">
+                  </TableCell>
+                  <TableCell>
                     <Input
                       type="number"
                       min="0"
@@ -230,20 +307,21 @@ export function InventoryTable({ rows }: { rows: InventoryRow[] }) {
                       onBlur={(e) => {
                         const t = Number(e.target.value);
                         if (Number.isFinite(t) && t !== row.lowStockThreshold) {
-                          run(() =>
-                            setThresholdAction({ variantId: row.variantId, lowStockThreshold: t })
+                          run(
+                            () => setThresholdAction({ variantId: row.variantId, lowStockThreshold: t }),
+                            "Threshold updated"
                           );
                         }
                       }}
                       className="h-8 w-20 text-center"
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               );
-            })}
-          </tbody>
-        </table>
-      </div>
+            })
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

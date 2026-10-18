@@ -9,6 +9,8 @@ import {
   NotificationQueueActions,
   RetryNotificationButton,
 } from "@/components/admin/notification-actions";
+import { PageHeader } from "@/components/admin/page-header";
+import { NotificationStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +19,6 @@ export const metadata = { title: "Notifications" };
 const PAGE_SIZE = 20;
 
 type SearchParams = { status?: string; page?: string };
-
-const STATUS_STYLES: Record<NotificationStatus, string> = {
-  QUEUED: "bg-amber-100 text-amber-800",
-  SENT: "bg-emerald-100 text-emerald-800",
-  FAILED: "bg-red-100 text-red-800",
-};
 
 function templateLabel(template: string): string {
   return Object.prototype.hasOwnProperty.call(NOTIFICATION_TEMPLATE_LABELS, template)
@@ -86,16 +82,12 @@ export default async function AdminNotificationsPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold">Notifications</h1>
-          <p className="text-sm text-muted-foreground">
-            {total} total · {counts.QUEUED ?? 0} queued · {counts.SENT ?? 0} sent ·{" "}
-            {counts.FAILED ?? 0} failed
-          </p>
-        </div>
+      <PageHeader
+        title="Notifications"
+        description={`${total} total · ${counts.QUEUED ?? 0} queued · ${counts.SENT ?? 0} sent · ${counts.FAILED ?? 0} failed`}
+      >
         <NotificationQueueActions />
-      </div>
+      </PageHeader>
 
       <div className="flex flex-wrap gap-2">
         <Link
@@ -118,7 +110,7 @@ export default async function AdminNotificationsPage({
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-left">
             <tr>
@@ -160,11 +152,7 @@ export default async function AdminNotificationsPage({
                     </td>
                     <td className="px-4 py-2 text-muted-foreground">{recipient}</td>
                     <td className="px-4 py-2">
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[row.status]}`}
-                      >
-                        {row.status}
-                      </span>
+                      <NotificationStatusBadge status={row.status} />
                       {row.sentAt ? (
                         <div className="text-xs text-muted-foreground">
                           {new Date(row.sentAt).toLocaleTimeString("en-IN")}

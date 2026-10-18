@@ -43,7 +43,7 @@ export function AddressManager({ addresses }: { addresses: Address[] }) {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your addresses</h1>
+        <h2 className="text-lg font-semibold">Your addresses</h2>
         <Button
           onClick={() => {
             setShowNew((v) => !v);

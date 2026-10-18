@@ -6,11 +6,6 @@
     "orientation": "portrait",
     "scheme": "freshbasket",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#16a34a"
-    },
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.freshbasket.app"
@@ -24,6 +19,15 @@
     "web": {
       "bundler": "metro"
     },
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-router",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow Fresh Basket to use your location to set your delivery address."
+        }
+      ]
+    ]
   }
 }

@@ -1,7 +1,8 @@
 import { prisma, type NotificationLog } from "database";
 import { ORDER_STATUS_LABELS } from "shared";
 import { sendEmail } from "@/lib/email";
-import { renderNotification, type OrderContext } from "@/lib/notification-templates";
+import { sendPush } from "@/lib/push";
+import { renderNotification, renderPush, type OrderContext } from "@/lib/notification-templates";
 
 const MAX_ATTEMPTS = 3;
 
@@ -16,21 +17,38 @@ type QueueInput = {
  * Record a notification as queued. Delivery happens in processNotificationQueue,
  * triggered by /api/cron/notifications or the admin Notifications page, so user
  * flows are never blocked or failed by a mail provider outage.
+ *
+ * When no channel is given we fan out to EMAIL and, for signed-in recipients, a
+ * device PUSH — so every order event reaches the customer on both surfaces.
  */
 export async function queueNotification(input: QueueInput): Promise<void> {
+  const channels: QueueInput["channel"][] = input.channel
+    ? [input.channel]
+    : input.userId
+      ? ["EMAIL", "PUSH"]
+      : ["EMAIL"];
+
   try {
-    await prisma.notificationLog.create({
-      data: {
+    await prisma.notificationLog.createMany({
+      data: channels.map((channel) => ({
         userId: input.userId ?? null,
-        channel: input.channel ?? "EMAIL",
-        status: "QUEUED",
+        channel: channel ?? "EMAIL",
+        status: "QUEUED" as const,
         template: input.template,
         payload: (input.payload ?? {}) as object,
-      },
+      })),
     });
   } catch {
     // Notification failures must never break the primary action.
   }
+}
+
+/**
+ * Kick off a queue drain in the background. Safe to call from request handlers:
+ * any failure is swallowed so the caller's response is never affected.
+ */
+export function processNotificationQueueSoon(): void {
+  void processNotificationQueue().catch(() => {});
 }
 
 export type ProcessSummary = {
@@ -88,7 +106,42 @@ async function buildOrderContext(orderId: string): Promise<OrderContext | null> 
   };
 }
 
+async function processPushRow(row: NotificationLog): Promise<{ sent: boolean; error?: string }> {
+  if (!row.userId) return { sent: false, error: "No recipient for push notification." };
+
+  const devices = await prisma.deviceToken.findMany({
+    where: { userId: row.userId },
+    select: { token: true },
+  });
+  if (devices.length === 0) return { sent: false, error: "No registered devices." };
+
+  const payload = (row.payload ?? {}) as Record<string, unknown>;
+  const orderId = typeof payload.orderId === "string" ? payload.orderId : undefined;
+  const order = orderId ? await buildOrderContext(orderId) : null;
+  const settings = await prisma.storeSettings.findUnique({ where: { id: "singleton" } });
+
+  const rendered = renderPush({
+    template: row.template,
+    recipientName: typeof payload.recipientName === "string" ? payload.recipientName : undefined,
+    storeName: settings?.storeName ?? undefined,
+    contactPhone: settings?.contactPhone ?? undefined,
+    payload,
+    order,
+    link: orderId ? `${appUrl()}/account/orders/${orderId}` : appUrl(),
+  });
+
+  const result = await sendPush(
+    devices.map((d) => d.token),
+    { title: rendered.title, body: rendered.body, data: orderId ? { orderId } : {} },
+  );
+
+  return result.ok ? { sent: true } : { sent: false, error: result.error ?? "Push send failed." };
+}
+
 async function processRow(row: NotificationLog): Promise<{ sent: boolean; error?: string }> {
+  if (row.channel === "PUSH") return processPushRow(row);
+  if (row.channel !== "EMAIL") return { sent: false, error: `Unsupported channel: ${row.channel}` };
+
   const payload = (row.payload ?? {}) as Record<string, unknown>;
   const email = await resolveRecipient(row);
   if (!email) return { sent: false, error: "No recipient email address." };
@@ -135,11 +188,11 @@ export async function processNotificationQueue(
     ? { id: { in: options.ids } }
     : options.includeFailed
       ? {
-          channel: "EMAIL",
+          channel: { in: ["EMAIL", "PUSH"] },
           status: { in: ["QUEUED", "FAILED"] },
           attempts: { lt: MAX_ATTEMPTS },
         }
-      : { channel: "EMAIL", status: "QUEUED" };
+      : { channel: { in: ["EMAIL", "PUSH"] }, status: "QUEUED" };
 
   const rows = await prisma.notificationLog.findMany({
     where,

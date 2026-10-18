@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "database";
 import { addToCartSchema } from "shared";
 import { auth } from "@/auth";
+import { reorderIntoCart } from "@/lib/cart-service";
 
 export type CartActionResult = { ok?: boolean; error?: string };
 
@@ -86,4 +87,23 @@ export async function removeCartItemAction(variantId: string): Promise<CartActio
 
   revalidatePath("/cart");
   return { ok: true };
+}
+
+export type ReorderResult = {
+  ok?: boolean;
+  error?: string;
+  added?: number;
+  skipped?: number;
+};
+
+/** Add every still-available item from a past order back into the cart. */
+export async function reorderAction(orderId: string): Promise<ReorderResult> {
+  const userId = await currentUserId();
+  if (!userId) return { error: "Please log in." };
+
+  const result = await reorderIntoCart(userId, orderId);
+  if (!result.ok) return { error: result.error };
+
+  revalidatePath("/cart");
+  return { ok: true, added: result.added, skipped: result.skipped };
 }

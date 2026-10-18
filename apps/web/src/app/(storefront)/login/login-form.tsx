@@ -64,6 +64,11 @@ export function LoginForm() {
             Create an account
           </Link>
         </p>
+        <p className="mt-2 text-center text-sm text-muted-foreground">
+          <Link href="/login/otp" className="font-medium text-primary hover:underline">
+            Log in with mobile OTP
+          </Link>
+        </p>
       </CardContent>
     </Card>
   );

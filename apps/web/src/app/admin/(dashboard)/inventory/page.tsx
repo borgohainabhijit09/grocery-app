@@ -1,4 +1,6 @@
 import { prisma } from "database";
+
+import { PageHeader } from "@/components/admin/page-header";
 import { InventoryTable, type InventoryRow } from "./_components/inventory-table";
 
 export const metadata = { title: "Inventory" };
@@ -22,12 +24,10 @@ export default async function AdminInventoryPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Inventory</h1>
-        <p className="text-sm text-muted-foreground">
-          Track and adjust stock levels across every product variant.
-        </p>
-      </div>
+      <PageHeader
+        title="Inventory"
+        description="Track and adjust stock levels across every product variant."
+      />
       <InventoryTable rows={rows} />
     </div>
   );

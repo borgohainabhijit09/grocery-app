@@ -4,15 +4,30 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { Download, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
+import { Download, Eye, EyeOff, Pencil, Plus, Search, Star, Trash2 } from "lucide-react";
 import { formatINR } from "shared";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+
 import {
+  bulkProductAction,
   deleteProductAction,
   toggleProductAction,
+  type ProductBulkAction,
 } from "@/app/actions/admin/products";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableEmpty,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { toast } from "@/components/ui/toast";
 
 export type ProductRow = {
   id: string;
@@ -31,8 +46,11 @@ export type ProductRow = {
 export function ProductsTable({ products, query }: { products: ProductRow[]; query: string }) {
   const router = useRouter();
   const [search, setSearch] = useState(query);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
   const [pending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+
+  const allSelected = products.length > 0 && selected.size === products.length;
 
   function runSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -41,30 +59,62 @@ export function ProductsTable({ products, query }: { products: ProductRow[]; que
     router.push(`/admin/products${params.toString() ? `?${params}` : ""}`);
   }
 
-  function toggle(id: string, field: "isActive" | "isFeatured", value: boolean) {
-    setError(null);
-    startTransition(async () => {
-      const res = await toggleProductAction(id, field, value);
-      if (!res.ok) setError(res.error ?? "Update failed.");
-      else router.refresh();
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(products.map((p) => p.id)));
+  }
+
+  function toggleOne(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
     });
   }
 
-  function remove(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
-    setError(null);
+  function toggle(id: string, field: "isActive" | "isFeatured", value: boolean) {
     startTransition(async () => {
-      const res = await deleteProductAction(id);
-      if (!res.ok) setError(res.error ?? "Delete failed.");
-      else router.refresh();
+      const res = await toggleProductAction(id, field, value);
+      if (res.ok) router.refresh();
+      else toast({ title: "Update failed", variant: "error", description: res.error });
+    });
+  }
+
+  function runBulk(action: ProductBulkAction) {
+    const ids = [...selected];
+    startTransition(async () => {
+      const res = await bulkProductAction(ids, action);
+      if (res.ok) {
+        toast({ title: `${ids.length} product(s) updated`, variant: "success" });
+        setSelected(new Set());
+        router.refresh();
+      } else {
+        toast({ title: "Bulk update failed", variant: "error", description: res.error });
+      }
+    });
+  }
+
+  function runDelete() {
+    const ids = deleteIds ?? [];
+    if (ids.length === 0) return;
+    setSelected(new Set());
+    startTransition(async () => {
+      const res =
+        ids.length === 1 ? await deleteProductAction(ids[0]) : await bulkProductAction(ids, "delete");
+      if (res.ok) {
+        toast({ title: `${ids.length} product(s) deleted`, variant: "success" });
+        router.refresh();
+      } else {
+        toast({ title: "Delete failed", variant: "error", description: res.error });
+      }
     });
   }
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <form onSubmit={runSearch} className="relative flex-1 min-w-56">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <form onSubmit={runSearch} className="relative min-w-56 flex-1">
+          <Search className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -86,34 +136,66 @@ export function ProductsTable({ products, query }: { products: ProductRow[]; que
         </Button>
       </div>
 
-      {error && (
-        <p className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-      )}
+      {selected.size > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-accent/40 px-3 py-2">
+          <span className="text-sm font-medium">{selected.size} selected</span>
+          <div className="flex flex-wrap items-center gap-1">
+            <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("activate")}>
+              <Eye className="size-3.5" /> Show
+            </Button>
+            <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("deactivate")}>
+              <EyeOff className="size-3.5" /> Hide
+            </Button>
+            <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("feature")}>
+              <Star className="size-3.5" /> Feature
+            </Button>
+            <Button size="xs" variant="outline" disabled={pending} onClick={() => runBulk("unfeature")}>
+              Unfeature
+            </Button>
+          </div>
+          <Button
+            size="xs"
+            variant="destructive"
+            disabled={pending}
+            onClick={() => setDeleteIds([...selected])}
+          >
+            <Trash2 className="size-3.5" /> Delete
+          </Button>
+          <Button size="xs" variant="ghost" onClick={() => setSelected(new Set())}>
+            Clear
+          </Button>
+        </div>
+      ) : null}
 
-      <div className="overflow-hidden rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/40 text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Product</th>
-              <th className="px-4 py-2 font-medium">Category</th>
-              <th className="px-4 py-2 font-medium">Variants</th>
-              <th className="px-4 py-2 font-medium">Price</th>
-              <th className="px-4 py-2 font-medium">Stock</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 text-right font-medium">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  No products found.
-                </td>
-              </tr>
-            )}
-            {products.map((p) => (
-              <tr key={p.id} className="border-t">
-                <td className="px-4 py-2">
+      <Table>
+        <TableHeader>
+          <TableRow className="hover:bg-transparent">
+            <TableHead className="w-10">
+              <Checkbox checked={allSelected} onCheckedChange={toggleAll} aria-label="Select all" />
+            </TableHead>
+            <TableHead>Product</TableHead>
+            <TableHead>Category</TableHead>
+            <TableHead>Variants</TableHead>
+            <TableHead>Price</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {products.length === 0 ? (
+            <TableEmpty colSpan={8}>No products found.</TableEmpty>
+          ) : (
+            products.map((p) => (
+              <TableRow key={p.id} data-state={selected.has(p.id) ? "selected" : undefined}>
+                <TableCell>
+                  <Checkbox
+                    checked={selected.has(p.id)}
+                    onCheckedChange={() => toggleOne(p.id)}
+                    aria-label={`Select ${p.name}`}
+                  />
+                </TableCell>
+                <TableCell>
                   <div className="flex items-center gap-3">
                     <div className="relative size-10 shrink-0 overflow-hidden rounded-md border bg-secondary/30">
                       {p.image && (
@@ -125,64 +207,76 @@ export function ProductsTable({ products, query }: { products: ProductRow[]; que
                       <div className="truncate text-xs text-muted-foreground">/{p.slug}</div>
                     </div>
                   </div>
-                </td>
-                <td className="px-4 py-2 text-muted-foreground">{p.categoryName}</td>
-                <td className="px-4 py-2">{p.variantCount}</td>
-                <td className="px-4 py-2">
+                </TableCell>
+                <TableCell className="text-muted-foreground">{p.categoryName}</TableCell>
+                <TableCell>{p.variantCount}</TableCell>
+                <TableCell>
                   {p.minPricePaise === p.maxPricePaise
                     ? formatINR(p.minPricePaise)
                     : `${formatINR(p.minPricePaise)} – ${formatINR(p.maxPricePaise)}`}
-                </td>
-                <td className="px-4 py-2">{p.stock}</td>
-                <td className="px-4 py-2">
+                </TableCell>
+                <TableCell>{p.stock}</TableCell>
+                <TableCell>
                   <div className="flex flex-wrap gap-1">
                     <Badge variant={p.isActive ? "success" : "secondary"}>
                       {p.isActive ? "Active" : "Hidden"}
                     </Badge>
                     {p.isFeatured && <Badge variant="warning">Featured</Badge>}
                   </div>
-                </td>
-                <td className="px-4 py-2">
+                </TableCell>
+                <TableCell>
                   <div className="flex justify-end gap-1">
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      title={p.isFeatured ? "Unfeature" : "Feature"}
+                      aria-label={p.isFeatured ? "Unfeature" : "Feature"}
                       onClick={() => toggle(p.id, "isFeatured", !p.isFeatured)}
                       disabled={pending}
                     >
-                      <Star
-                        className={`size-4 ${p.isFeatured ? "fill-amber-400 text-amber-400" : ""}`}
-                      />
+                      <Star className={p.isFeatured ? "size-4 fill-amber-400 text-amber-400" : "size-4"} />
                     </Button>
                     <Button
                       variant="ghost"
-                      size="sm"
+                      size="icon-sm"
+                      aria-label={p.isActive ? "Hide" : "Show"}
                       onClick={() => toggle(p.id, "isActive", !p.isActive)}
                       disabled={pending}
                     >
-                      {p.isActive ? "Hide" : "Show"}
+                      {p.isActive ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                     </Button>
                     <Button asChild variant="ghost" size="icon-sm">
-                      <Link href={`/admin/products/${p.id}`}>
+                      <Link href={`/admin/products/${p.id}`} aria-label="Edit">
                         <Pencil className="size-4" />
                       </Link>
                     </Button>
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      onClick={() => remove(p.id, p.name)}
+                      aria-label="Delete"
+                      onClick={() => setDeleteIds([p.id])}
                       disabled={pending}
                     >
                       <Trash2 className="size-4 text-destructive" />
                     </Button>
                   </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
+
+      <ConfirmDialog
+        open={deleteIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteIds(null);
+        }}
+        title={deleteIds && deleteIds.length > 1 ? `Delete ${deleteIds.length} products?` : "Delete product?"}
+        description="This permanently removes the selected products and cannot be undone."
+        confirmLabel="Delete"
+        destructive
+        onConfirm={runDelete}
+      />
     </div>
   );
 }

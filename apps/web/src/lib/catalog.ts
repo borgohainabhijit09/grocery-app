@@ -9,6 +9,7 @@ export type CatalogVariant = {
   pricePaise: number;
   mrpPaise: number | null;
   stockQty: number;
+  lowStockThreshold?: number;
 };
 
 export type CatalogItem = {
@@ -185,7 +186,7 @@ export async function getCatalog(query: ShopQuery): Promise<CatalogResult> {
       variants: {
         where: { isActive: true },
         orderBy: { pricePaise: "asc" },
-        select: { id: true, pricePaise: true, mrpPaise: true, stockQty: true },
+        select: { id: true, pricePaise: true, mrpPaise: true, stockQty: true, lowStockThreshold: true },
       },
     },
   });

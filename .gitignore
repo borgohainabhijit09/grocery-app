@@ -41,6 +41,11 @@ apps/mobile/web-build/
 apps/mobile/ios/
 apps/mobile/android/
 apps/mobile/dist/
+apps/admin-mobile/.expo/
+apps/admin-mobile/web-build/
+apps/admin-mobile/ios/
+apps/admin-mobile/android/
+apps/admin-mobile/dist/
 
 # Uploads (local dev)
 uploads/

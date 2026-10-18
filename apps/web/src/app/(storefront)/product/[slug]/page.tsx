@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "database";
-import { formatINR, discountPercent } from "shared";
+import { formatINR, discountPercent, stockState } from "shared";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,7 @@ async function getRelated(categoryId: string, excludeId: string): Promise<Produc
         variants: {
           where: { isActive: true },
           orderBy: { pricePaise: "asc" },
-          select: { id: true, pricePaise: true, mrpPaise: true, stockQty: true },
+          select: { id: true, pricePaise: true, mrpPaise: true, stockQty: true, lowStockThreshold: true },
         },
       },
     })) as ProductCardData[];
@@ -71,6 +71,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
   const mrp = product.variants[0]?.mrpPaise ?? null;
   const off = mrp ? discountPercent(mrp, price) : 0;
   const totalStock = product.variants.reduce((sum, v) => sum + v.stockQty, 0);
+  const inStockVariants = product.variants.filter((v) => v.stockQty > 0);
+  const lowStock =
+    inStockVariants.length > 0 &&
+    inStockVariants.every(
+      (v) => stockState(v.stockQty, v.lowStockThreshold ?? undefined) === "low",
+    );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -95,8 +101,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <div>
           <div className="flex flex-wrap items-center gap-2">
             {product.isFeatured && <Badge variant="warning">Featured</Badge>}
-            <Badge variant={totalStock > 0 ? "success" : "destructive"}>
-              {totalStock > 0 ? "In stock" : "Out of stock"}
+            <Badge variant={totalStock > 0 ? (lowStock ? "warning" : "success") : "destructive"}>
+              {totalStock > 0 ? (lowStock ? "Low stock" : "In stock") : "Out of stock"}
             </Badge>
           </div>
 
@@ -139,7 +145,12 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
 
           <div className="mt-6">
             {product.variants.length > 0 ? (
-              <ProductActions variants={product.variants} isLoggedIn={!!session?.user} />
+              <ProductActions
+                variants={product.variants}
+                isLoggedIn={!!session?.user}
+                productId={product.id}
+                productName={product.name}
+              />
             ) : (
               <p className="text-sm text-muted-foreground">Currently unavailable.</p>
             )}
@@ -173,8 +184,8 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         <section className="mt-12">
           <h2 className="mb-4 text-xl font-semibold">You may also like</h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            {related.map((p) => (
-              <ProductCard key={p.id} product={p} />
+            {related.map((p, i) => (
+              <ProductCard key={p.id} product={p} isLoggedIn={!!session?.user} index={i} />
             ))}
           </div>
         </section>

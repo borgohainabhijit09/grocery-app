@@ -5,6 +5,8 @@ import { SortSelect } from "@/components/shop/sort-select";
 import { ProductGrid } from "@/components/shop/product-grid";
 import { Pagination } from "@/components/shop/pagination";
 import { ShopFilters } from "@/components/shop/shop-filters";
+import { FilterDrawer } from "@/components/shop/filter-drawer";
+import { auth } from "@/auth";
 import {
   getCatalog,
   getCategoryBySlug,
@@ -50,6 +52,8 @@ export default async function CategoryPage({
   } catch {
     // Render an empty state if the database is unavailable.
   }
+
+  const session = await auth();
 
   const basePath = `/category/${category.slug}`;
   const childQuery = buildShopQuery(
@@ -107,7 +111,7 @@ export default async function CategoryPage({
       )}
 
       <div className="mt-8 grid gap-8 lg:grid-cols-[240px_1fr]">
-        <aside className="lg:sticky lg:top-20 lg:h-fit">
+        <aside className="hidden lg:sticky lg:top-20 lg:block lg:h-fit">
           <ShopFilters
             tree={tree}
             query={query}
@@ -117,10 +121,18 @@ export default async function CategoryPage({
         </aside>
 
         <div>
-          <div className="mb-4 flex items-center justify-end">
+          <div className="mb-4 flex items-center justify-between gap-3 lg:justify-end">
+            <FilterDrawer>
+              <ShopFilters
+                tree={tree}
+                query={query}
+                basePath={basePath}
+                activeCategory={category.slug}
+              />
+            </FilterDrawer>
             <SortSelect query={query} />
           </div>
-          <ProductGrid items={catalog.items} />
+          <ProductGrid items={catalog.items} isLoggedIn={!!session?.user} />
           <Pagination basePath={basePath} query={query} result={catalog} />
         </div>
       </div>

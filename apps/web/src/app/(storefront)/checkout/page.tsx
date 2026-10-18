@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "database";
-import { formatINR } from "shared";
+import { isWithinRadius } from "shared";
 import { auth } from "@/auth";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 
@@ -11,7 +11,8 @@ export default async function CheckoutPage() {
   const session = await auth();
   if (!session?.user) redirect("/login?next=/checkout");
 
-  const [cart, addresses, slots, settings] = await Promise.all([
+  const now = new Date();
+  const [cart, addresses, slots, settings, availableCoupons] = await Promise.all([
     prisma.cart.findUnique({
       where: { userId: session.user.id },
       include: { items: { include: { variant: { include: { product: true } } } } },
@@ -25,6 +26,15 @@ export default async function CheckoutPage() {
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     }),
     prisma.storeSettings.findUnique({ where: { id: "singleton" } }),
+    prisma.coupon.findMany({
+      where: {
+        isActive: true,
+        startsAt: { lte: now },
+        OR: [{ expiresAt: null }, { expiresAt: { gte: now } }],
+      },
+      orderBy: [{ minOrderPaise: "asc" }, { createdAt: "desc" }],
+      take: 12,
+    }),
   ]);
 
   if (!cart || cart.items.length === 0) {
@@ -53,33 +63,55 @@ export default async function CheckoutPage() {
 
   const razorpayEnabled = Boolean(process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET);
 
+  const hasStoreLocation = Boolean(
+    settings && (settings.latitude !== 0 || settings.longitude !== 0)
+  );
+  const center = settings ? { latitude: settings.latitude, longitude: settings.longitude } : null;
+  const radiusKm = settings?.deliveryRadiusKm ?? 10;
+
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
-      <h1 className="text-2xl font-semibold">Checkout</h1>
-      <div className="mt-6 space-y-6">
-        <div className="rounded-lg border p-4 text-sm">
-          <p className="font-medium">Cart total</p>
-          <p className="text-muted-foreground">{formatINR(subtotal)}</p>
-        </div>
-        <CheckoutForm
-          addresses={addresses.map((a) => ({ ...a, isDefault: a.isDefault }))}
-          slots={slots.map((sl) => ({
-            id: sl.id,
-            date: sl.date.toISOString(),
-            startTime: sl.startTime,
-            endTime: sl.endTime,
-            fulfillmentType: sl.fulfillmentType,
-          }))}
-          settings={{
-            deliveryFeePaise: s.deliveryFeePaise,
-            freeDeliveryAbovePaise: s.freeDeliveryAbovePaise,
-            minOrderValuePaise: s.minOrderValuePaise,
-            taxRatePercent: s.taxRatePercent,
-          }}
-          cartSummary={summary}
-          razorpayEnabled={razorpayEnabled}
-        />
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <div className="mb-6">
+        <h1 className="text-2xl font-semibold sm:text-3xl">Checkout</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose how you&apos;d like your order, pick a slot and confirm.
+        </p>
       </div>
+      <CheckoutForm
+        addresses={addresses.map((a) => ({
+          ...a,
+          isDefault: a.isDefault,
+          serviceable:
+            !hasStoreLocation || !center
+              ? true
+              : isWithinRadius(center, { latitude: a.latitude, longitude: a.longitude }, radiusKm),
+        }))}
+        slots={slots.map((sl) => ({
+          id: sl.id,
+          date: sl.date.toISOString(),
+          startTime: sl.startTime,
+          endTime: sl.endTime,
+          fulfillmentType: sl.fulfillmentType,
+        }))}
+        settings={{
+          deliveryFeePaise: s.deliveryFeePaise,
+          freeDeliveryAbovePaise: s.freeDeliveryAbovePaise,
+          minOrderValuePaise: s.minOrderValuePaise,
+          taxRatePercent: s.taxRatePercent,
+        }}
+        cartSummary={summary}
+        razorpayEnabled={razorpayEnabled}
+        availableCoupons={availableCoupons
+          .filter((c) => c.maxUses == null || c.usedCount < c.maxUses)
+          .map((c) => ({
+            code: c.code,
+            description: c.description,
+            type: c.type,
+            value: c.value,
+            minOrderPaise: c.minOrderPaise,
+            maxDiscountPaise: c.maxDiscountPaise,
+          }))}
+      />
     </div>
   );
 }

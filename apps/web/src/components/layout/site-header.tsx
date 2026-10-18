@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ShoppingCart, LayoutDashboard, LogOut, User, Search } from "lucide-react";
+import { LogOut, User, Search } from "lucide-react";
 import { prisma } from "database";
 import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HeaderSearch } from "@/components/shop/header-search";
+import { CartDrawer } from "@/components/cart-drawer";
 
 async function logout() {
   "use server";
@@ -12,8 +13,6 @@ async function logout() {
 
 export async function SiteHeader() {
   const session = await auth();
-  const role = session?.user?.role;
-  const isStaff = role === "ADMIN" || role === "STAFF";
 
   let cartCount = 0;
   if (session?.user?.id) {
@@ -54,33 +53,14 @@ export async function SiteHeader() {
             </Link>
           </Button>
 
-          {isStaff && (
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/admin">
-                <LayoutDashboard className="size-4" />
-                <span className="hidden sm:inline">Admin</span>
-              </Link>
-            </Button>
-          )}
-
-          <Button asChild variant="ghost" size="sm" className="relative">
-            <Link href="/cart" aria-label="Cart">
-              <ShoppingCart className="size-4" />
-              <span className="hidden sm:inline">Cart</span>
-              {cartCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
-                  {cartCount > 9 ? "9+" : cartCount}
-                </span>
-              )}
-            </Link>
-          </Button>
+          <CartDrawer cartCount={cartCount} isLoggedIn={!!session?.user} />
 
           {session?.user ? (
             <>
               <Button asChild variant="ghost" size="sm">
                 <Link href="/account">
                   <User className="size-4" />
-                  <span className="hidden sm:inline">{session.user.name ?? "Account"}</span>
+                  <span className="hidden sm:inline">My Account</span>
                 </Link>
               </Button>
               <form action={logout}>
@@ -100,6 +80,24 @@ export async function SiteHeader() {
             </>
           )}
         </div>
+      </div>
+
+      <div className="border-t lg:hidden">
+        <nav className="mx-auto flex max-w-6xl items-center gap-1 overflow-x-auto px-4 py-1.5">
+          <Button asChild variant="ghost" size="sm">
+            <Link href="/shop">Shop</Link>
+          </Button>
+          {session?.user && (
+            <>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/account/orders">My Orders</Link>
+              </Button>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/account">My Account</Link>
+              </Button>
+            </>
+          )}
+        </nav>
       </div>
     </header>
   );

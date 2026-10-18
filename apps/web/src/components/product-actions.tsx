@@ -3,9 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Minus, Plus, ShoppingCart } from "lucide-react";
-import { formatINR } from "shared";
+import { formatINR, stockState } from "shared";
 import { addToCartAction } from "@/app/actions/cart";
 import { Button } from "@/components/ui/button";
+import { NotifyStockButton } from "@/components/notify-stock-button";
 
 type Variant = {
   id: string;
@@ -13,14 +14,19 @@ type Variant = {
   pricePaise: number;
   mrpPaise: number | null;
   stockQty: number;
+  lowStockThreshold?: number | null;
 };
 
 export function ProductActions({
   variants,
   isLoggedIn,
+  productId,
+  productName,
 }: {
   variants: Variant[];
   isLoggedIn: boolean;
+  productId: string;
+  productName: string;
 }) {
   const router = useRouter();
   const [variantId, setVariantId] = useState(variants[0]?.id ?? "");
@@ -110,10 +116,16 @@ export function ProductActions({
       </div>
 
       {selected && (
-        <p className="text-xs text-muted-foreground">
-          {selected.stockQty <= 0
+        <p
+          className={
+            stockState(selected.stockQty, selected.lowStockThreshold ?? undefined) === "low"
+              ? "text-xs font-medium text-amber-600"
+              : "text-xs text-muted-foreground"
+          }
+        >
+          {stockState(selected.stockQty, selected.lowStockThreshold ?? undefined) === "out"
             ? "Currently out of stock."
-            : selected.stockQty <= 5
+            : stockState(selected.stockQty, selected.lowStockThreshold ?? undefined) === "low"
               ? `Hurry — only ${selected.stockQty} left in stock.`
               : "In stock and ready to ship."}
         </p>
@@ -125,6 +137,15 @@ export function ProductActions({
         >
           {message}
         </p>
+      )}
+
+      {selected && !inStock && (
+        <NotifyStockButton
+          productId={productId}
+          variantId={selected.id}
+          productName={productName}
+          hasUser={isLoggedIn}
+        />
       )}
     </div>
   );

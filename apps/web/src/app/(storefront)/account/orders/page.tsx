@@ -4,6 +4,7 @@ import { prisma } from "database";
 import { formatINR, ORDER_STATUS_LABELS } from "shared";
 import { auth } from "@/auth";
 import { Button } from "@/components/ui/button";
+import { ReorderButton } from "@/components/reorder-button";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "My Orders" };
@@ -19,8 +20,8 @@ export default async function OrdersPage() {
   });
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-8">
-      <h1 className="text-2xl font-semibold">My orders</h1>
+    <div>
+      <h2 className="text-lg font-semibold">My orders</h2>
 
       {orders.length === 0 ? (
         <div className="mt-6 rounded-xl border border-dashed p-10 text-center">
@@ -53,6 +54,7 @@ export default async function OrdersPage() {
                 </span>
                 <div className="flex items-center gap-3">
                   <span className="font-semibold">{formatINR(order.totalPaise)}</span>
+                  <ReorderButton orderId={order.id} />
                   <Button asChild variant="ghost" size="sm">
                     <Link href={`/account/orders/${order.id}`}>View details</Link>
                   </Button>

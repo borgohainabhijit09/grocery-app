@@ -134,7 +134,7 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="overflow-hidden rounded-xl border">
+      <div className="overflow-x-auto rounded-xl border">
         <table className="w-full text-sm">
           <thead className="bg-secondary/40 text-left">
             <tr>

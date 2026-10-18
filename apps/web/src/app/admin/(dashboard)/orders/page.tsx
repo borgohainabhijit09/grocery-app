@@ -1,8 +1,10 @@
 import Link from "next/link";
+import { Download } from "lucide-react";
 import { prisma } from "database";
-import { formatINR, ORDER_STATUSES, ORDER_STATUS_LABELS, type OrderStatus } from "shared";
-import { OrderStatusBadge } from "@/components/order-status-badge";
+import { ORDER_STATUSES, ORDER_STATUS_LABELS, type OrderStatus } from "shared";
+import { PageHeader } from "@/components/admin/page-header";
 import { Button } from "@/components/ui/button";
+import { OrdersTable } from "./_components/orders-table";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Orders" };
@@ -41,21 +43,42 @@ export default async function AdminOrdersPage({
       : {}),
   };
 
-  const [orders, total, statusCounts] = await Promise.all([
+  const [orders, total, statusCounts, partners] = await Promise.all([
     prisma.order.findMany({
       where,
       orderBy: { placedAt: "desc" },
       include: {
         user: { select: { name: true, email: true, phone: true } },
         items: true,
-        deliveryPartner: { select: { name: true } },
+        deliveryPartner: { select: { id: true, name: true } },
       },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
     prisma.order.count({ where }),
     prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
+    prisma.user.findMany({
+      where: { role: "DELIVERY", isActive: true },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
+
+  const rows = orders.map((o) => ({
+    id: o.id,
+    orderNumber: o.orderNumber,
+    customerName: o.user.name,
+    customerContact: o.user.phone ?? o.user.email,
+    placedAt: o.placedAt.toISOString(),
+    status: o.status,
+    paymentStatus: o.paymentStatus,
+    paymentMethod: o.paymentMethod,
+    fulfillmentType: o.fulfillmentType,
+    itemCount: o.items.length,
+    partnerId: o.deliveryPartnerId,
+    partnerName: o.deliveryPartner?.name ?? null,
+    totalPaise: o.totalPaise,
+  }));
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -81,15 +104,22 @@ export default async function AdminOrdersPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-semibold">Orders</h1>
-        <span className="text-sm text-muted-foreground">{total} total</span>
-      </div>
+      <PageHeader
+        title="Orders"
+        description={`${total} total`}
+      >
+        <Button asChild variant="outline" size="sm">
+          <a href="/api/admin/orders/export" download>
+            <Download className="size-4" />
+            Export CSV
+          </a>
+        </Button>
+      </PageHeader>
 
       <div className="flex flex-wrap gap-2">
         <Link
           href={buildHref({ status: undefined, page: "1" })}
-          className={`rounded-md border px-3 py-1 text-sm ${!status ? "bg-secondary font-medium" : "hover:bg-accent"}`}
+          className={`rounded-full border px-3 py-1 text-sm ${!status ? "bg-secondary font-medium" : "hover:bg-accent"}`}
         >
           All
         </Link>
@@ -97,7 +127,7 @@ export default async function AdminOrdersPage({
           <Link
             key={s}
             href={buildHref({ status: s, page: "1" })}
-            className={`rounded-md border px-3 py-1 text-sm ${status === s ? "bg-secondary font-medium" : "hover:bg-accent"}`}
+            className={`rounded-full border px-3 py-1 text-sm ${status === s ? "bg-secondary font-medium" : "hover:bg-accent"}`}
           >
             {ORDER_STATUS_LABELS[s]}
             {counts[s] ? <span className="ml-1 text-xs text-muted-foreground">{counts[s]}</span> : null}
@@ -105,7 +135,7 @@ export default async function AdminOrdersPage({
         ))}
         <Link
           href={buildHref({ assign: unassigned ? undefined : "unassigned", page: "1" })}
-          className={`rounded-md border px-3 py-1 text-sm ${unassigned ? "bg-secondary font-medium" : "hover:bg-accent"}`}
+          className={`rounded-full border px-3 py-1 text-sm ${unassigned ? "bg-secondary font-medium" : "hover:bg-accent"}`}
         >
           Unassigned
         </Link>
@@ -130,67 +160,7 @@ export default async function AdminOrdersPage({
         ) : null}
       </form>
 
-      <div className="overflow-hidden rounded-xl border">
-        <table className="w-full text-sm">
-          <thead className="bg-secondary/40 text-left">
-            <tr>
-              <th className="px-4 py-2 font-medium">Order</th>
-              <th className="px-4 py-2 font-medium">Customer</th>
-              <th className="px-4 py-2 font-medium">Placed</th>
-              <th className="px-4 py-2 font-medium">Status</th>
-              <th className="px-4 py-2 font-medium">Delivery</th>
-              <th className="px-4 py-2 font-medium">Payment</th>
-              <th className="px-4 py-2 text-right font-medium">Total</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-muted-foreground">
-                  No orders found.
-                </td>
-              </tr>
-            ) : (
-              orders.map((order) => (
-                <tr key={order.id} className="border-t hover:bg-accent/40">
-                  <td className="px-4 py-2">
-                    <Link href={`/admin/orders/${order.id}`} className="font-medium hover:text-primary">
-                      {order.orderNumber}
-                    </Link>
-                    <div className="text-xs text-muted-foreground">
-                      {order.items.length} item{order.items.length === 1 ? "" : "s"} ·{" "}
-                      {order.fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2">
-                    <div>{order.user.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {order.user.phone ?? order.user.email}
-                    </div>
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {new Date(order.placedAt).toLocaleString("en-IN")}
-                  </td>
-                  <td className="px-4 py-2">
-                    <OrderStatusBadge status={order.status} />
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {order.deliveryPartner
-                      ? order.deliveryPartner.name
-                      : order.fulfillmentType === "DELIVERY"
-                        ? "—"
-                        : "Pickup"}
-                  </td>
-                  <td className="px-4 py-2 text-muted-foreground">
-                    {order.paymentMethod} · {order.paymentStatus}
-                  </td>
-                  <td className="px-4 py-2 text-right font-medium">{formatINR(order.totalPaise)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+      <OrdersTable orders={rows} partners={partners} />
 
       {totalPages > 1 ? (
         <div className="flex items-center justify-between">

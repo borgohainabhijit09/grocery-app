@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Fresh Basket">
+  <rect width="64" height="64" rx="14" fill="#16a34a"/>
+  <path d="M12 26 H52 L48 46 A6 6 0 0 1 42 50 H22 A6 6 0 0 1 16 46 Z" fill="#ffffff"/>
+  <path d="M21 26 A11 11 0 0 1 43 26" fill="none" stroke="#ffffff" stroke-width="4.5" stroke-linecap="round"/>
+  <path d="M44 12 q6 -8 14 -6 q-2 8 -11 10 z" fill="#bbf7d0"/>
+</svg>

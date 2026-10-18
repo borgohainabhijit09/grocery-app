@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeScript } from "@/components/theme-provider";
+import { Toaster } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: {
@@ -14,9 +16,13 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <ThemeScript />
+      </head>
       <body className="min-h-screen bg-background text-foreground antialiased">
         {children}
+        <Toaster />
       </body>
     </html>
   );

@@ -1,4 +1,7 @@
-import { useActionState } from "react";
+"use client";
+
+import { useActionState, useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, MapPin } from "lucide-react";
 import { upsertAddressAction } from "@/app/actions/addresses";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,10 +26,73 @@ type Props = {
   onClose?: () => void;
 };
 
+type GeoStatus = "idle" | "locating" | "captured" | "denied" | "error" | "unsupported";
+
 const initialState: FormState = { ok: false };
+
+const GEO_OPTIONS: PositionOptions = {
+  enableHighAccuracy: true,
+  timeout: 10000,
+  maximumAge: 0,
+};
+
+function statusMessage(status: GeoStatus): string {
+  switch (status) {
+    case "locating":
+      return "Getting your location…";
+    case "captured":
+      return "Location captured from your browser.";
+    case "denied":
+      return "Location permission denied. Enter coordinates manually.";
+    case "error":
+      return "Couldn't get your location. Enter coordinates manually.";
+    case "unsupported":
+      return "Geolocation isn't supported by this browser. Enter coordinates manually.";
+    default:
+      return "We use your browser location to pin the delivery point.";
+  }
+}
 
 export function AddressForm({ address, onClose }: Props) {
   const [state, formAction, pending] = useActionState(upsertAddressAction, initialState);
+  const [latitude, setLatitude] = useState(address ? String(address.latitude) : "");
+  const [longitude, setLongitude] = useState(address ? String(address.longitude) : "");
+  const [geoStatus, setGeoStatus] = useState<GeoStatus>("idle");
+  const autoRequested = useRef(false);
+
+  const captureLocation = useCallback(() => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      setGeoStatus("unsupported");
+      return;
+    }
+    setGeoStatus("locating");
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(6));
+        setLongitude(pos.coords.longitude.toFixed(6));
+        setGeoStatus("captured");
+      },
+      (err) => setGeoStatus(err.code === 1 ? "denied" : "error"),
+      GEO_OPTIONS
+    );
+  }, []);
+
+  useEffect(() => {
+    if (autoRequested.current) return;
+    autoRequested.current = true;
+    if (address?.id) return;
+    if (latitude || longitude) return;
+    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setLatitude(pos.coords.latitude.toFixed(6));
+        setLongitude(pos.coords.longitude.toFixed(6));
+        setGeoStatus("captured");
+      },
+      (err) => setGeoStatus(err.code === 1 ? "denied" : "error"),
+      GEO_OPTIONS
+    );
+  }, [address?.id, latitude, longitude]);
 
   return (
     <form action={formAction} className="space-y-4">
@@ -73,14 +139,59 @@ export function AddressForm({ address, onClose }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="space-y-1.5">
-          <Label htmlFor="latitude">Latitude</Label>
-          <Input id="latitude" name="latitude" type="number" step="any" defaultValue={address?.latitude ?? 0} required />
+      <div className="rounded-lg border bg-muted/40 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <MapPin className="size-4 text-primary" />
+            Delivery coordinates
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={captureLocation}
+            disabled={geoStatus === "locating"}
+          >
+            {geoStatus === "locating" ? (
+              <>
+                <Loader2 className="size-3.5 animate-spin" /> Locating…
+              </>
+            ) : (
+              "Use current location"
+            )}
+          </Button>
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="longitude">Longitude</Label>
-          <Input id="longitude" name="longitude" type="number" step="any" defaultValue={address?.longitude ?? 0} required />
+        <p className="mt-2 text-xs text-muted-foreground">{statusMessage(geoStatus)}</p>
+
+        <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="latitude">Latitude</Label>
+            <Input
+              id="latitude"
+              name="latitude"
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="e.g. 26.144500"
+              value={latitude}
+              onChange={(e) => setLatitude(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="longitude">Longitude</Label>
+            <Input
+              id="longitude"
+              name="longitude"
+              type="number"
+              step="any"
+              inputMode="decimal"
+              placeholder="e.g. 91.736200"
+              value={longitude}
+              onChange={(e) => setLongitude(e.target.value)}
+              required
+            />
+          </div>
         </div>
       </div>
 

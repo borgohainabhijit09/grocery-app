@@ -62,6 +62,7 @@ export const NOTIFICATION_TEMPLATES = [
   "order_cancelled",
   "order_assigned",
   "order_status_changed",
+  "back_in_stock",
 ] as const;
 export type NotificationTemplate = (typeof NOTIFICATION_TEMPLATES)[number];
 
@@ -75,7 +76,18 @@ export const NOTIFICATION_TEMPLATE_LABELS: Record<NotificationTemplate, string> 
   order_cancelled: "Order cancelled",
   order_assigned: "Delivery assigned",
   order_status_changed: "Status updated",
+  back_in_stock: "Back in stock",
 };
+
+export const OTP_PURPOSES = ["SIGNUP", "LOGIN"] as const;
+export type OtpPurpose = (typeof OTP_PURPOSES)[number];
+
+/** OTP policy (shared by the request/verify actions and the UI copy). */
+export const OTP_LENGTH = 6;
+export const OTP_TTL_MINUTES = 10;
+export const OTP_MAX_ATTEMPTS = 5;
+export const OTP_RESEND_COOLDOWN_SECONDS = 30;
+export const OTP_MAX_REQUESTS_PER_HOUR = 5;
 
 export const PAYMENT_STATUSES = ["UNPAID", "PENDING", "PAID", "FAILED", "REFUNDED"] as const;
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];

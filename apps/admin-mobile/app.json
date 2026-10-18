@@ -1,0 +1,24 @@
+{
+  "expo": {
+    "name": "Fresh Basket Admin",
+    "slug": "fresh-basket-admin",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "scheme": "freshbasketadmin",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.freshbasket.admin"
+    },
+    "android": {
+      "package": "com.freshbasket.admin",
+      "adaptiveIcon": {
+        "backgroundColor": "#0f172a"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": ["expo-router"]
+  }
+}

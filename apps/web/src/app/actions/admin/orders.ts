@@ -6,7 +6,7 @@ import type { OrderStatus } from "shared";
 import { ORDER_STATUS_FLOW } from "shared";
 import { requireStaff } from "@/lib/auth-guard";
 import { toDbError, type FormState } from "./_shared";
-import { queueNotification } from "@/lib/notifications";
+import { queueNotification, processNotificationQueueSoon } from "@/lib/notifications";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Tx = any;
@@ -93,6 +93,7 @@ export async function updateOrderStatusAction(
         note: note?.trim() || undefined,
       },
     });
+    processNotificationQueueSoon();
 
     revalidatePath("/admin/orders");
     revalidatePath(`/admin/orders/${orderId}`);
@@ -102,6 +103,27 @@ export async function updateOrderStatusAction(
   } catch (err) {
     return toDbError(err);
   }
+}
+
+export async function bulkUpdateOrderStatusAction(
+  orderIds: string[],
+  status: string
+): Promise<FormState> {
+  await requireStaff();
+  if (orderIds.length === 0) return { error: "No orders selected." };
+
+  let updated = 0;
+  let lastError: string | undefined;
+  for (const id of orderIds) {
+    const res = await updateOrderStatusAction(id, status);
+    if (res.ok) updated += 1;
+    else lastError = res.error;
+  }
+
+  if (updated === 0) {
+    return { error: lastError ?? `No orders could be moved to ${status}.` };
+  }
+  return { ok: true };
 }
 
 export async function markOrderPaidAction(orderId: string): Promise<FormState> {

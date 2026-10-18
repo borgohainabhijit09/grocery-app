@@ -1,4 +1,9 @@
+import Link from "next/link";
 import { prisma } from "database";
+import { Download, Plus } from "lucide-react";
+
+import { PageHeader } from "@/components/admin/page-header";
+import { Button } from "@/components/ui/button";
 import { ProductsTable, type ProductRow } from "./_components/products-table";
 
 export const metadata = { title: "Products" };
@@ -44,13 +49,25 @@ export default async function AdminProductsPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Products</h1>
-        <p className="text-sm text-muted-foreground">
-          {rows.length} product{rows.length === 1 ? "" : "s"}
-          {term ? ` matching “${term}”` : ""}.
-        </p>
-      </div>
+      <PageHeader
+        title="Products"
+        description={`${rows.length} product${rows.length === 1 ? "" : "s"}${
+          term ? ` matching “${term}”` : ""
+        }.`}
+      >
+        <Button asChild variant="outline" size="sm">
+          <a href="/api/admin/products/export" download>
+            <Download className="size-4" />
+            Export CSV
+          </a>
+        </Button>
+        <Button asChild size="sm">
+          <Link href="/admin/products/new">
+            <Plus className="size-4" />
+            New product
+          </Link>
+        </Button>
+      </PageHeader>
       <ProductsTable products={rows} query={term ?? ""} />
     </div>
   );
