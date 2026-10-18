@@ -1,14 +1,14 @@
 #!/bin/bash
-# One-time setup for a fresh Ubuntu 24.04 VPS.
-# Run as root: bash scripts/vps-setup.sh <YOUR_DOMAIN> <GITHUB_REPO_URL>
-# Example: bash scripts/vps-setup.sh app.example.com https://github.com/you/grocery-app.git
+# One-time setup for the grocery-app VPS (Ubuntu 24.04).
+# Run as root on the VPS:
+#   bash scripts/vps-setup.sh
 
 set -euo pipefail
 
-DOMAIN="${1:?Usage: $0 <domain> <github-repo-url>}"
-REPO_URL="${2:?Usage: $0 <domain> <github-repo-url>}"
+DOMAIN="grocery-app.sygmiainnovative.co.in"
+REPO_URL="https://github.com/borgohainabhijit09/grocery-app.git"
 APP_DIR="/srv/grocery-app"
-EMAIL="admin@${DOMAIN}"   # used for Let's Encrypt expiry notices
+EMAIL="admin@sygmiainnovative.co.in"
 
 echo "===== [1/6] System update ====="
 apt-get update -y && apt-get upgrade -y
@@ -32,7 +32,6 @@ fi
 
 echo "===== [5/6] Configure Nginx ====="
 cp "$APP_DIR/nginx/app.conf" /etc/nginx/sites-available/grocery-app
-sed -i "s/YOUR_DOMAIN/$DOMAIN/g" /etc/nginx/sites-available/grocery-app
 ln -sf /etc/nginx/sites-available/grocery-app /etc/nginx/sites-enabled/grocery-app
 rm -f /etc/nginx/sites-enabled/default
 nginx -t
@@ -49,7 +48,12 @@ echo ""
 echo "Next steps:"
 echo "  1. cd $APP_DIR"
 echo "  2. cp .env.example .env"
-echo "  3. nano .env   ← fill in POSTGRES_PASSWORD, NEXTAUTH_SECRET, AUTH_SECRET,"
-echo "                     NEXTAUTH_URL=https://$DOMAIN, NEXT_PUBLIC_APP_URL=https://$DOMAIN"
+echo "  3. nano .env   <- fill in:"
+echo "       POSTGRES_PASSWORD=<strong-password>"
+echo "       NEXTAUTH_SECRET=<random-32-bytes>"
+echo "       AUTH_SECRET=<same-or-different-32-bytes>"
+echo "       NEXTAUTH_URL=https://$DOMAIN"
+echo "       NEXT_PUBLIC_APP_URL=https://$DOMAIN"
+echo "       NEXT_PUBLIC_API_URL=https://$DOMAIN"
 echo "  4. bash scripts/deploy.sh"
 echo ""
