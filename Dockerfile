@@ -26,8 +26,10 @@ ENV DATABASE_URL="postgresql://x:x@x:5432/x"
 RUN npm run build -w web
 
 # ─── Stage 3: migrations (used as a one-shot service in compose) ──────────────
+# Uses db push because no migration history exists yet. Once the first
+# `prisma migrate dev --name init` is committed, switch to migrate deploy.
 FROM builder AS migrate
-CMD ["npx", "prisma", "migrate", "deploy", "--schema=./packages/database/prisma/schema.prisma"]
+CMD ["npx", "prisma", "db", "push", "--schema=./packages/database/prisma/schema.prisma", "--accept-data-loss"]
 
 # ─── Stage 4: production runner ───────────────────────────────────────────────
 FROM base AS runner
