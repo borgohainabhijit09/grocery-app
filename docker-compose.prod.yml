@@ -1,10 +1,17 @@
 name: grocery-app
 
+networks:
+  internal:
+  gateway:
+    name: food-ordering-cell_default
+    external: true
+
 services:
   db:
     image: postgres:16-alpine
     container_name: grocery-db
     restart: unless-stopped
+    networks: [internal]
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
@@ -24,6 +31,7 @@ services:
       target: migrate
     container_name: grocery-migrate
     restart: on-failure
+    networks: [internal]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
     depends_on:
@@ -37,8 +45,7 @@ services:
       target: runner
     container_name: grocery-web
     restart: unless-stopped
-    ports:
-      - "127.0.0.1:3000:3000"
+    networks: [internal, gateway]
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
       DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
