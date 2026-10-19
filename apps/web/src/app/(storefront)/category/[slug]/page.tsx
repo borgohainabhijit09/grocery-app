@@ -18,10 +18,34 @@ import { buildShopQuery, parseShopQuery } from "@/lib/shop-params";
 
 export const dynamic = "force-dynamic";
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://grocery-app.sygmiainnovative.co.in";
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const category = await getCategoryBySlug(slug);
-  return { title: category?.name ?? "Category" };
+  if (!category) return { title: "Category" };
+
+  const title = category.name;
+  const description = `Shop fresh ${category.name.toLowerCase()} online. Best prices with fast home delivery in Dibrugarh from Fresh Basket.`;
+  const canonical = `${siteUrl}/category/${slug}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${title} | Fresh Basket`,
+      description,
+      url: canonical,
+      images: category.image ? [{ url: category.image, alt: title }] : [{ url: "/grocery-hero.png", alt: "Fresh Basket" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${title} | Fresh Basket`,
+      description,
+      images: category.image ? [category.image] : ["/grocery-hero.png"],
+    },
+  };
 }
 
 const emptyCatalog: CatalogResult = {

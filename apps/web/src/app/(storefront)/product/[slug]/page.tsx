@@ -12,11 +12,54 @@ import { getStoreSettings } from "@/lib/catalog";
 
 export const dynamic = "force-dynamic";
 
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://grocery-app.sygmiainnovative.co.in";
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   try {
-    const product = await prisma.product.findUnique({ where: { slug }, select: { name: true } });
-    return { title: product?.name ?? "Product" };
+    const product = await prisma.product.findUnique({
+      where: { slug },
+      select: {
+        name: true,
+        description: true,
+        images: true,
+        brand: true,
+        category: { select: { name: true } },
+        variants: {
+          where: { isActive: true },
+          orderBy: { pricePaise: "asc" },
+          select: { pricePaise: true, mrpPaise: true },
+          take: 1,
+        },
+      },
+    });
+    if (!product) return { title: "Product Not Found" };
+
+    const title = product.name;
+    const description =
+      product.description ??
+      `Buy ${product.name}${product.brand ? ` by ${product.brand}` : ""} online from Fresh Basket. Fast home delivery in Dibrugarh, Assam.`;
+    const image = product.images[0] ?? `${siteUrl}/grocery-hero.png`;
+    const canonical = `${siteUrl}/product/${slug}`;
+
+    return {
+      title,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        title: `${title} | Fresh Basket`,
+        description,
+        url: canonical,
+        type: "website",
+        images: [{ url: image, alt: title }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${title} | Fresh Basket`,
+        description,
+        images: [image],
+      },
+    };
   } catch {
     return { title: "Product" };
   }
@@ -78,8 +121,51 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
       (v) => stockState(v.stockQty, v.lowStockThreshold ?? undefined) === "low",
     );
 
+  const productSchema = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.name,
+    description: product.description ?? undefined,
+    image: product.images,
+    brand: product.brand ? { "@type": "Brand", name: product.brand } : undefined,
+    category: product.category.name,
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "INR",
+      lowPrice: (price / 100).toFixed(2),
+      highPrice: (mrp ? mrp / 100 : price / 100).toFixed(2),
+      offerCount: product.variants.length,
+      availability:
+        totalStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      seller: { "@type": "Organization", name: "Fresh Basket" },
+    },
+  };
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Shop", item: `${siteUrl}/shop` },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: product.category.name,
+        item: `${siteUrl}/category/${product.category.slug}`,
+      },
+      { "@type": "ListItem", position: 3, name: product.name },
+    ],
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productSchema) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+      />
       <nav className="text-sm text-muted-foreground">
         <Link href="/shop" className="hover:text-foreground">
           Shop

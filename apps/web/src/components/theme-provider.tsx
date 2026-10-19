@@ -19,9 +19,9 @@ const listeners = new Set<() => void>();
 let cachedSnapshot: Theme | undefined;
 
 function readStored(): Theme {
-  if (typeof window === "undefined") return "system";
+  if (typeof window === "undefined") return "light";
   const value = window.localStorage.getItem(STORAGE_KEY);
-  return value === "light" || value === "dark" || value === "system" ? value : "system";
+  return value === "light" || value === "dark" || value === "system" ? value : "light";
 }
 
 function emit() {
@@ -64,7 +64,7 @@ function getSnapshot(): Theme {
 }
 
 function getServerSnapshot(): Theme {
-  return "system";
+  return "light";
 }
 
 export function useTheme() {
@@ -86,7 +86,7 @@ export function useTheme() {
 
 /** Inline script that applies the stored theme before paint to avoid a flash. */
 export function ThemeScript() {
-  const script = `(function(){try{var t=localStorage.getItem('${STORAGE_KEY}')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;if(d)r.classList.add('dark');r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
+  const script = `(function(){try{var t=localStorage.getItem('${STORAGE_KEY}')||'light';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;if(d)r.classList.add('dark');r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
   return <script dangerouslySetInnerHTML={{ __html: script }} />;
 }
 

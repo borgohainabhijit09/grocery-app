@@ -8,8 +8,30 @@ import { getCatalog, getCategoryTree, type CatalogResult, type CategoryNode } fr
 import { parseShopQuery } from "@/lib/shop-params";
 import { logSearch } from "@/lib/search-log";
 
+import type { Metadata } from "next";
+
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Shop" };
+
+const siteUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://grocery-app.sygmiainnovative.co.in";
+
+export const metadata: Metadata = {
+  title: "Shop Groceries",
+  description:
+    "Browse and buy fresh vegetables, fruits, dairy, staples, snacks and more. Home delivery & store pickup in Dibrugarh.",
+  alternates: { canonical: `${siteUrl}/shop` },
+  openGraph: {
+    title: "Shop Groceries | Fresh Basket",
+    description: "Browse and buy fresh groceries online. Home delivery & store pickup in Dibrugarh.",
+    url: `${siteUrl}/shop`,
+    images: [{ url: `${siteUrl}/grocery-hero.png`, alt: "Fresh Basket Grocery Store" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Shop Groceries | Fresh Basket",
+    description: "Browse fresh groceries online — delivery in Dibrugarh.",
+    images: [`${siteUrl}/grocery-hero.png`],
+  },
+};
 
 const emptyCatalog: CatalogResult = {
   items: [],
