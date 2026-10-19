@@ -12,8 +12,8 @@ export default async function CheckoutPage() {
   if (!session?.user) redirect("/login?next=/checkout");
 
   const now = new Date();
-  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  const todayMidnight = new Date(now);
+  todayMidnight.setUTCHours(0, 0, 0, 0); // match @db.Date UTC storage
 
   const [cart, addresses, rawSlots, settings, availableCoupons] = await Promise.all([
     prisma.cart.findUnique({
@@ -90,14 +90,9 @@ export default async function CheckoutPage() {
               : isWithinRadius(center, { latitude: a.latitude, longitude: a.longitude }, radiusKm),
         }))}
         slots={rawSlots
-          .filter((sl) => {
-            const slotDay = new Date(sl.date.getFullYear(), sl.date.getMonth(), sl.date.getDate());
-            if (slotDay.getTime() > todayMidnight.getTime()) return true;
-            return sl.startTime > currentTimeStr;
-          })
           .map((sl) => ({
             id: sl.id,
-            date: `${sl.date.getFullYear()}-${String(sl.date.getMonth() + 1).padStart(2, "0")}-${String(sl.date.getDate()).padStart(2, "0")}`,
+            date: sl.date.toISOString().slice(0, 10), // @db.Date → UTC midnight → safe to slice
             startTime: sl.startTime,
             endTime: sl.endTime,
             fulfillmentType: sl.fulfillmentType,

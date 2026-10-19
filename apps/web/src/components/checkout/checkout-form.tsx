@@ -100,6 +100,13 @@ function daySubLabel(key: string) {
   });
 }
 
+function to12h(time: string) {
+  const [h, m] = time.split(":").map(Number);
+  const period = h < 12 ? "AM" : "PM";
+  const hour = h % 12 || 12;
+  return `${hour}:${String(m).padStart(2, "0")} ${period}`;
+}
+
 export function CheckoutForm({
   addresses,
   slots,
@@ -120,7 +127,17 @@ export function CheckoutForm({
   const [pendingCoupon, startCoupon] = useTransition();
   const [state, formAction, pendingOrder] = useActionState(placeOrderAction, initialState);
 
-  const filteredSlots = slots.filter((s) => s.fulfillmentType === fulfillment);
+  // Client-side filter: browser Date() uses local (IST) time — avoids server UTC mismatch
+  const _now = new Date();
+  const todayKey = `${_now.getFullYear()}-${String(_now.getMonth() + 1).padStart(2, "0")}-${String(_now.getDate()).padStart(2, "0")}`;
+  const currentTimeStr = `${String(_now.getHours()).padStart(2, "0")}:${String(_now.getMinutes()).padStart(2, "0")}`;
+
+  const filteredSlots = slots.filter((s) => {
+    if (s.fulfillmentType !== fulfillment) return false;
+    if (s.date > todayKey) return true;   // future date → always show
+    if (s.date < todayKey) return false;  // past date → always hide
+    return s.startTime > currentTimeStr;  // today → only show future slots
+  });
 
   const slotDays: { key: string; items: Slot[] }[] = [];
   for (const s of filteredSlots) {
@@ -333,7 +350,7 @@ export function CheckoutForm({
                         )}
                       >
                         {active ? <Check className="size-3.5" /> : null}
-                        {s.startTime} – {s.endTime}
+                        {to12h(s.startTime)} – {to12h(s.endTime)}
                       </button>
                     );
                   })}

@@ -219,13 +219,13 @@ const products: SeedProduct[] = [
 
 function startOfToday(): Date {
   const d = new Date();
-  d.setHours(0, 0, 0, 0);
+  d.setUTCHours(0, 0, 0, 0); // @db.Date stores UTC date — must use UTC midnight
   return d;
 }
 
 function addDays(date: Date, days: number): Date {
   const d = new Date(date);
-  d.setDate(d.getDate() + days);
+  d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
 
@@ -421,6 +421,8 @@ async function main() {
   });
 
   const today = startOfToday();
+  // Clean up past slots with no orders (safe raw SQL avoids Prisma relation-filter limits)
+  await prisma.$executeRaw`DELETE FROM "Slot" WHERE date < ${today}::date AND id NOT IN (SELECT DISTINCT "slotId" FROM "Order" WHERE "slotId" IS NOT NULL)`;
   await prisma.slot.deleteMany({ where: { date: { gte: today } } });
 
   for (let day = 0; day < 7; day++) {
