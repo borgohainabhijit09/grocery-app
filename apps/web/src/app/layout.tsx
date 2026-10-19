@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { ThemeScript } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/toast";
@@ -11,15 +11,18 @@ export const metadata: Metadata = {
   description:
     "Order fresh groceries online with home delivery slots or store pickup. Fruits, vegetables, dairy, staples and more.",
   manifest: "/manifest.webmanifest",
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#16a34a" },
-    { media: "(prefers-color-scheme: dark)", color: "#15803d" },
-  ],
   appleWebApp: {
     capable: true,
     title: "Fresh Basket",
     statusBarStyle: "black-translucent",
   },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#16a34a" },
+    { media: "(prefers-color-scheme: dark)", color: "#15803d" },
+  ],
 };
 
 export default function RootLayout({
