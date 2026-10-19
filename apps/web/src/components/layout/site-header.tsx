@@ -5,6 +5,7 @@ import { auth, signOut } from "@/auth";
 import { Button } from "@/components/ui/button";
 import { HeaderSearch } from "@/components/shop/header-search";
 import { CartDrawer } from "@/components/cart-drawer";
+import { ThemeToggle } from "@/components/theme-provider";
 
 async function logout() {
   "use server";
@@ -52,6 +53,8 @@ export async function SiteHeader() {
               <Search className="size-4" />
             </Link>
           </Button>
+
+          <ThemeToggle />
 
           <CartDrawer cartCount={cartCount} isLoggedIn={!!session?.user} />
 

@@ -4,6 +4,7 @@ import { SiteHeader } from "@/components/layout/site-header";
 import { SiteFooter } from "@/components/layout/site-footer";
 import { LeadCapturePopup } from "@/components/home/lead-capture-popup";
 import { DeliveryCheckerFloat } from "@/components/delivery-checker-float";
+import { PwaInstallBanner } from "@/components/pwa-install-banner";
 
 export default async function StorefrontLayout({
   children,
@@ -30,6 +31,7 @@ export default async function StorefrontLayout({
       <SiteFooter />
       <LeadCapturePopup />
       <DeliveryCheckerFloat defaultCoordinates={defaultCoords} />
+      <PwaInstallBanner />
     </div>
   );
 }

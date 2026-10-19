@@ -108,3 +108,66 @@ export async function deleteSlotAction(id: string): Promise<FormState> {
     return { ok: false, ...toDbError(err) };
   }
 }
+
+const bulkWindowSchema = z.object({
+  startTime: z.string().regex(timeRegex),
+  endTime: z.string().regex(timeRegex),
+  fulfillmentType: z.enum(["DELIVERY", "PICKUP"]),
+  capacity: z.coerce.number().int().min(0).max(100_000),
+});
+
+const bulkSchema = z.object({
+  startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  daysOfWeek: z.array(z.number().int().min(0).max(6)).min(1),
+  windows: z.array(bulkWindowSchema).min(1),
+  isActive: z.boolean().default(true),
+});
+
+export async function bulkCreateSlotsAction(
+  input: unknown,
+): Promise<FormState & { count?: number }> {
+  await requireStaff();
+  const parsed = bulkSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: "Check the details and try again." };
+
+  const { startDate, endDate, daysOfWeek, windows, isActive } = parsed.data;
+
+  for (const w of windows) {
+    if (w.startTime >= w.endTime)
+      return { ok: false, error: "End time must be after start time." };
+  }
+
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  if (start > end) return { ok: false, error: "Start date must be before end date." };
+
+  const dates: Date[] = [];
+  const cur = new Date(start);
+  while (cur <= end) {
+    if (daysOfWeek.includes(cur.getUTCDay())) dates.push(new Date(cur));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+
+  if (dates.length === 0)
+    return { ok: false, error: "No matching dates in the selected range and days." };
+
+  const data = dates.flatMap((date) =>
+    windows.map((w) => ({
+      date,
+      startTime: w.startTime,
+      endTime: w.endTime,
+      fulfillmentType: w.fulfillmentType,
+      capacity: w.capacity,
+      isActive,
+    })),
+  );
+
+  try {
+    const result = await prisma.slot.createMany({ data, skipDuplicates: true });
+    revalidate();
+    return { ok: true, count: result.count };
+  } catch (err) {
+    return { ok: false, ...toDbError(err) };
+  }
+}
