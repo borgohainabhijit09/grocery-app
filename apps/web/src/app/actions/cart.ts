@@ -14,12 +14,16 @@ async function currentUserId(): Promise<string | null> {
 }
 
 async function ensureCart(userId: string) {
+  const userExists = await prisma.user.findUnique({ where: { id: userId }, select: { id: true } });
+  if (!userExists) return null;
   return prisma.cart.upsert({
     where: { userId },
     update: {},
     create: { userId },
   });
 }
+
+const STALE_SESSION_ERROR = "Session expired. Please sign out and sign in again.";
 
 export async function addToCartAction(input: {
   variantId: string;
@@ -38,6 +42,7 @@ export async function addToCartAction(input: {
   if (variant.stockQty <= 0) return { error: "This product is out of stock." };
 
   const cart = await ensureCart(userId);
+  if (!cart) return { error: STALE_SESSION_ERROR };
   const existing = await prisma.cartItem.findUnique({
     where: { cartId_variantId: { cartId: cart.id, variantId: variant.id } },
   });
@@ -63,6 +68,7 @@ export async function updateCartItemAction(input: {
   if (!userId) return { error: "Please log in." };
 
   const cart = await ensureCart(userId);
+  if (!cart) return { error: STALE_SESSION_ERROR };
   const quantity = Math.max(0, Math.min(99, Math.floor(input.quantity)));
 
   if (quantity === 0) {
@@ -83,6 +89,7 @@ export async function removeCartItemAction(variantId: string): Promise<CartActio
   if (!userId) return { error: "Please log in." };
 
   const cart = await ensureCart(userId);
+  if (!cart) return { error: STALE_SESSION_ERROR };
   await prisma.cartItem.deleteMany({ where: { cartId: cart.id, variantId } });
 
   revalidatePath("/cart");
