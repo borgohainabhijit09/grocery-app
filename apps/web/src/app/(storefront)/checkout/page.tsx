@@ -97,7 +97,7 @@ export default async function CheckoutPage() {
           })
           .map((sl) => ({
             id: sl.id,
-            date: sl.date.toISOString(),
+            date: `${sl.date.getFullYear()}-${String(sl.date.getMonth() + 1).padStart(2, "0")}-${String(sl.date.getDate()).padStart(2, "0")}`,
             startTime: sl.startTime,
             endTime: sl.endTime,
             fulfillmentType: sl.fulfillmentType,
