@@ -12,7 +12,10 @@ export default async function CheckoutPage() {
   if (!session?.user) redirect("/login?next=/checkout");
 
   const now = new Date();
-  const [cart, addresses, slots, settings, availableCoupons] = await Promise.all([
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
+  const [cart, addresses, rawSlots, settings, availableCoupons] = await Promise.all([
     prisma.cart.findUnique({
       where: { userId: session.user.id },
       include: { items: { include: { variant: { include: { product: true } } } } },
@@ -22,7 +25,7 @@ export default async function CheckoutPage() {
       orderBy: [{ isDefault: "desc" }, { createdAt: "desc" }],
     }),
     prisma.slot.findMany({
-      where: { isActive: true, date: { gte: new Date(new Date().setHours(0, 0, 0, 0)) } },
+      where: { isActive: true, date: { gte: todayMidnight } },
       orderBy: [{ date: "asc" }, { startTime: "asc" }],
     }),
     prisma.storeSettings.findUnique({ where: { id: "singleton" } }),
@@ -86,13 +89,19 @@ export default async function CheckoutPage() {
               ? true
               : isWithinRadius(center, { latitude: a.latitude, longitude: a.longitude }, radiusKm),
         }))}
-        slots={slots.map((sl) => ({
-          id: sl.id,
-          date: sl.date.toISOString(),
-          startTime: sl.startTime,
-          endTime: sl.endTime,
-          fulfillmentType: sl.fulfillmentType,
-        }))}
+        slots={rawSlots
+          .filter((sl) => {
+            const slotDay = new Date(sl.date.getFullYear(), sl.date.getMonth(), sl.date.getDate());
+            if (slotDay.getTime() > todayMidnight.getTime()) return true;
+            return sl.startTime > currentTimeStr;
+          })
+          .map((sl) => ({
+            id: sl.id,
+            date: sl.date.toISOString(),
+            startTime: sl.startTime,
+            endTime: sl.endTime,
+            fulfillmentType: sl.fulfillmentType,
+          }))}
         settings={{
           deliveryFeePaise: s.deliveryFeePaise,
           freeDeliveryAbovePaise: s.freeDeliveryAbovePaise,

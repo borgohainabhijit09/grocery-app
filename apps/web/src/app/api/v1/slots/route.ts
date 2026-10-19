@@ -20,24 +20,32 @@ export const GET = route(async (request) => {
     throw new ApiError(400, "Invalid fulfillmentType.");
   }
 
+  const now = new Date();
+  const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const currentTimeStr = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+
   let dateFilter = {};
   if (dateParam) {
     const date = new Date(`${dateParam}T00:00:00.000Z`);
     if (Number.isNaN(date.getTime())) throw new ApiError(400, "Invalid date. Use YYYY-MM-DD.");
     dateFilter = { date };
   } else {
-    const today = new Date();
-    today.setUTCHours(0, 0, 0, 0);
-    dateFilter = { date: { gte: today } };
+    dateFilter = { date: { gte: todayMidnight } };
   }
 
-  const slots = await prisma.slot.findMany({
+  const rawSlots = await prisma.slot.findMany({
     where: {
       isActive: true,
       ...dateFilter,
       ...(fulfillmentType ? { fulfillmentType: fulfillmentType as "DELIVERY" | "PICKUP" } : {}),
     },
     orderBy: [{ date: "asc" }, { startTime: "asc" }],
+  });
+
+  const slots = rawSlots.filter((sl) => {
+    const slotDay = new Date(sl.date.getFullYear(), sl.date.getMonth(), sl.date.getDate());
+    if (slotDay.getTime() > todayMidnight.getTime()) return true;
+    return sl.startTime > currentTimeStr;
   });
 
   const booked =
