@@ -72,7 +72,7 @@ model User {
   name            String
   email           String    @unique
   phone           String?   @unique
-  password        String
+  password        String?
   role            Role      @default(CUSTOMER)
   isActive        Boolean   @default(true)
   phoneVerifiedAt DateTime?

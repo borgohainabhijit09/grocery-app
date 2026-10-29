@@ -104,8 +104,17 @@ export function AddressForm({ address, onClose }: Props) {
           <Input id="fullName" name="fullName" defaultValue={address?.fullName ?? ""} required />
         </div>
         <div className="space-y-1.5">
-          <Label htmlFor="phone">Phone</Label>
-          <Input id="phone" name="phone" defaultValue={address?.phone ?? ""} required />
+          <Label htmlFor="phone">Mobile number *</Label>
+          <Input
+            id="phone"
+            name="phone"
+            type="tel"
+            inputMode="numeric"
+            maxLength={10}
+            placeholder="10-digit number"
+            defaultValue={address?.phone ?? ""}
+            required
+          />
         </div>
       </div>
 
