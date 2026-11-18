@@ -23,6 +23,12 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Prisma generate only reads the schema file — no real DB needed here
 ENV DATABASE_URL="postgresql://x:x@x:5432/x"
 
+# NEXT_PUBLIC_* values are inlined at build time (robots.txt, sitemap, metadata).
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build -w web
 
 # ─── Stage 3: migrations (used as a one-shot service in compose) ──────────────

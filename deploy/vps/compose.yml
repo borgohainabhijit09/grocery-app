@@ -1,0 +1,126 @@
+# Fresh Basket on the shared multi-project host (/opt/stacks/grocery-app).
+#
+# This is the VPS variant: it does NOT start its own Caddy. The existing
+# `edge-caddy` container owns :80/:443 and reaches this stack through the
+# shared external `edge` network.
+#
+#   /opt/stacks/grocery-app/
+#   ├── compose.yml   (this file)
+#   ├── .env          (secrets, chmod 600)
+#   └── app/          (git checkout of this repository)
+#
+# Deploy:
+#   docker compose up -d db
+#   # apply migrations + seed (see DEPLOY.md)
+#   docker compose up -d
+
+name: grocery-app
+
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: grocery-app-db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      POSTGRES_DB: ${DB_NAME:-grocery}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-grocery}"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    logging: *default-logging
+    networks: [internal]
+
+  # Only used when someone explicitly runs `docker compose run --rm migrate`.
+  # It needs the full builder stage, which is memory-hungry on small VPSes.
+  migrate:
+    profiles: ["tools"]
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      target: migrate
+    image: grocery-app/migrate:2026.11.18
+    container_name: grocery-app-migrate
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-grocery}?schema=public
+      DIRECT_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-grocery}?schema=public
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-false}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [internal]
+
+  web:
+    build:
+      context: ./app
+      dockerfile: Dockerfile
+      target: runner
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://fresh-basket.abhijitborgohain.online}
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://fresh-basket.abhijitborgohain.online}
+    image: grocery-app/web:2026.11.18
+    container_name: grocery-app-web
+    restart: always
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-grocery}?schema=public
+      DIRECT_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD}@db:5432/${DB_NAME:-grocery}?schema=public
+      NODE_ENV: production
+      AUTH_TRUST_HOST: "true"
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-https://fresh-basket.abhijitborgohain.online}
+      AUTH_URL: ${NEXTAUTH_URL:-https://fresh-basket.abhijitborgohain.online}
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?set NEXTAUTH_SECRET in .env}
+      AUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-https://fresh-basket.abhijitborgohain.online}
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://fresh-basket.abhijitborgohain.online}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
+      RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
+      RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
+      RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
+      NEXT_PUBLIC_RAZORPAY_KEY_ID: ${NEXT_PUBLIC_RAZORPAY_KEY_ID:-}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      MAIL_FROM: ${MAIL_FROM:-orders@example.com}
+      CRON_SECRET: ${CRON_SECRET:-}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+      OTP_PROVIDER: ${OTP_PROVIDER:-mock}
+    expose:
+      - "3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging: *default-logging
+    networks:
+      - internal
+      - edge
+
+volumes:
+  pgdata:
+    name: grocery-app_pgdata
+
+networks:
+  internal:
+    name: grocery-app-internal
+  edge:
+    external: true
+    name: edge
