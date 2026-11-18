@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import {
   requestLoginOtpAction,
   verifyLoginOtpAction,
@@ -30,10 +30,8 @@ function DevCodeHint({ code }: { code?: string }) {
   );
 }
 
-export function OtpLoginForm() {
+export function OtpLoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
 
   const [phone, setPhone] = useState("");
   const [dismissed, setDismissed] = useState<OtpActionResult | undefined>(undefined);

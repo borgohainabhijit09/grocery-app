@@ -1,15 +1,21 @@
+# Production stack for the Fresh Basket grocery app.
+#
+#   docker compose -f docker-compose.prod.yml up -d --build
+#
+# Everything needed lives on the internal Docker network; only Caddy is exposed
+# on ports 80/443 and it obtains a Let's Encrypt certificate for APP_DOMAIN.
+# Required values come from a `.env` file next to this compose file (see
+# .env.production.example).
+
 name: grocery-app
 
 networks:
   internal:
-  gateway:
-    name: food-ordering-cell_default
-    external: true
 
 services:
   db:
     image: postgres:16-alpine
-    container_name: grocery-db
+    container_name: grocery-prod-db
     restart: unless-stopped
     networks: [internal]
     environment:
@@ -24,17 +30,22 @@ services:
       timeout: 5s
       retries: 10
 
+  # One-shot: applies pending Prisma migrations, then exits successfully.
   migrate:
     build:
       context: .
       dockerfile: Dockerfile
       target: migrate
-    container_name: grocery-migrate
+    container_name: grocery-prod-migrate
     restart: on-failure
     networks: [internal]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@grocery-db:5432/${POSTGRES_DB:-grocery}
-      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@grocery-db:5432/${POSTGRES_DB:-grocery}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
+      # Only used when the seed command is run manually through this service.
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:-}
+      SEED_DEMO_USERS: ${SEED_DEMO_USERS:-true}
     depends_on:
       db:
         condition: service_healthy
@@ -44,18 +55,24 @@ services:
       context: .
       dockerfile: Dockerfile
       target: runner
-    container_name: grocery-web
+    container_name: grocery-prod-web
     restart: unless-stopped
-    networks: [internal, gateway]
+    networks: [internal]
+    expose:
+      - "3000"
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@grocery-db:5432/${POSTGRES_DB:-grocery}
-      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@grocery-db:5432/${POSTGRES_DB:-grocery}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
+      DIRECT_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-grocery}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:?NEXTAUTH_SECRET is required}
       AUTH_SECRET: ${AUTH_SECRET:?AUTH_SECRET is required}
+      # Auth.js v5 reads AUTH_URL; NEXTAUTH_URL is kept for compatibility.
+      AUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       NEXTAUTH_URL: ${NEXTAUTH_URL:?NEXTAUTH_URL is required}
       AUTH_TRUST_HOST: "true"
       NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
       NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+      AUTH_GOOGLE_ID: ${AUTH_GOOGLE_ID:-}
+      AUTH_GOOGLE_SECRET: ${AUTH_GOOGLE_SECRET:-}
       RAZORPAY_KEY_ID: ${RAZORPAY_KEY_ID:-}
       RAZORPAY_KEY_SECRET: ${RAZORPAY_KEY_SECRET:-}
       RAZORPAY_WEBHOOK_SECRET: ${RAZORPAY_WEBHOOK_SECRET:-}
@@ -72,6 +89,33 @@ services:
         condition: service_healthy
       migrate:
         condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Reverse proxy + automatic HTTPS (Let's Encrypt).
+  caddy:
+    image: caddy:2-alpine
+    container_name: grocery-prod-caddy
+    restart: unless-stopped
+    networks: [internal]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN is required}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web:
+        condition: service_healthy
 
 volumes:
   pgdata:
+  caddy_data:
+  caddy_config:

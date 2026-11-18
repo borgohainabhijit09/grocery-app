@@ -1,14 +1,18 @@
-node_modules
-.next
-.turbo
+# Dependencies and build output (also in nested workspaces)
+**/node_modules
+**/.next
+**/.turbo
 dist
 build
-*.tsbuildinfo
+**/*.tsbuildinfo
 
+# Local env files — never baked into an image
 .env
 .env.local
 .env.*.local
+.env.production
 
+# Not part of the web image
 apps/mobile
 apps/admin-mobile
 

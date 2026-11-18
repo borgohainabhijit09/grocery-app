@@ -1,0 +1,19 @@
+# Reverse proxy for the Fresh Basket storefront.
+# Caddy obtains and renews the HTTPS certificate automatically; make sure
+# ports 80 and 443 are open in the VPS firewall and that APP_DOMAIN resolves
+# to this server before the first start.
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# Long-lived caching for immutable Next.js build output.
+	@immutable path /_next/static/*
+	header @immutable Cache-Control "public, max-age=31536000, immutable"
+
+	# The service worker must always be revalidated so a stale worker can
+	# never keep serving old chunks (this caused a reload loop once).
+	@sw path /sw.js
+	header @sw Cache-Control "no-cache, no-store, must-revalidate"
+
+	reverse_proxy web:3000
+}

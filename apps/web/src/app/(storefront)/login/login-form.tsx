@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { signIn } from "next-auth/react";
 import { loginAction, type ActionResult } from "@/app/actions/auth";
 import { Button } from "@/components/ui/button";
@@ -39,10 +39,8 @@ function GoogleIcon() {
   );
 }
 
-export function LoginForm() {
+export function LoginForm({ next }: { next: string }) {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/";
   const [state, action, pending] = useActionState<ActionResult | undefined, FormData>(
     loginAction,
     undefined

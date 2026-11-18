@@ -13,7 +13,9 @@ export const POST = route(async (request) => {
   const { email, password } = await parseBody(loginSchema, request);
 
   const user = await prisma.user.findUnique({ where: { email } });
-  if (!user || !user.isActive) throw new ApiError(401, "Invalid email or password.");
+  if (!user || !user.isActive || !user.password) {
+    throw new ApiError(401, "Invalid email or password.");
+  }
 
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) throw new ApiError(401, "Invalid email or password.");

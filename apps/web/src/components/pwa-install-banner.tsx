@@ -15,8 +15,27 @@ export function PwaInstallBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
-      navigator.serviceWorker.register("/sw.js").catch(() => {});
+    if (!("serviceWorker" in navigator)) return;
+
+    if (process.env.NODE_ENV === "production") {
+      // updateViaCache: "none" makes the browser re-fetch /sw.js on every
+      // navigation instead of serving a stale worker from the HTTP cache.
+      navigator.serviceWorker.register("/sw.js", { updateViaCache: "none" }).catch(() => {});
+      return;
+    }
+
+    // In development a worker left behind by an earlier production/preview
+    // build can keep serving stale HTML and make the page reload in a loop.
+    // Remove it (and its caches) so `next dev` always talks to the server.
+    void navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((r) => r.unregister())))
+      .catch(() => {});
+    if ("caches" in window) {
+      void caches
+        .keys()
+        .then((keys) => Promise.all(keys.map((key) => caches.delete(key))))
+        .catch(() => {});
     }
   }, []);
 

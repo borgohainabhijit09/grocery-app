@@ -245,83 +245,111 @@ const pickupSlotTemplates = [
 async function main() {
   console.log("Seeding database...");
 
-  const adminPassword = await bcrypt.hash("Admin@12345", 10);
+  // Production deployments should set SEED_ADMIN_EMAIL / SEED_ADMIN_PASSWORD and
+  // SEED_DEMO_USERS=false so no account with a publicly known password exists.
+  const seedDemoUsers = process.env.SEED_DEMO_USERS !== "false";
+
+  function seedPassword(envName: string, fallback: string): string {
+    const value = process.env[envName];
+    if (!value) {
+      console.warn(
+        `[seed] ${envName} is not set — using the demo password. Set it before deploying to production.`
+      );
+      return fallback;
+    }
+    if (value.length < 8) {
+      throw new Error(`[seed] ${envName} must be at least 8 characters.`);
+    }
+    return value;
+  }
+
+  const adminEmail = process.env.SEED_ADMIN_EMAIL ?? "admin@grocery.test";
+  const explicitAdminPassword = Boolean(process.env.SEED_ADMIN_PASSWORD);
+  const adminPassword = await bcrypt.hash(seedPassword("SEED_ADMIN_PASSWORD", "Admin@12345"), 10);
   const customerPassword = await bcrypt.hash("Customer@123", 10);
 
   const admin = await prisma.user.upsert({
-    where: { email: "admin@grocery.test" },
-    update: { role: "ADMIN" },
+    where: { email: adminEmail },
+    // An explicitly provided password also rotates an existing admin's password,
+    // so re-running the seed can reset it without touching the database by hand.
+    update: explicitAdminPassword ? { role: "ADMIN", password: adminPassword } : { role: "ADMIN" },
     create: {
       name: "Store Admin",
-      email: "admin@grocery.test",
+      email: adminEmail,
       phone: "9876543210",
       password: adminPassword,
       role: "ADMIN",
     },
   });
 
-  await prisma.user.upsert({
-    where: { email: "staff@grocery.test" },
-    update: { role: "STAFF" },
-    create: {
-      name: "Store Staff",
-      email: "staff@grocery.test",
-      phone: "9876543211",
-      password: adminPassword,
-      role: "STAFF",
-    },
-  });
+  if (seedDemoUsers) {
+    await prisma.user.upsert({
+      where: { email: "staff@grocery.test" },
+      update: { role: "STAFF" },
+      create: {
+        name: "Store Staff",
+        email: "staff@grocery.test",
+        phone: "9876543211",
+        password: adminPassword,
+        role: "STAFF",
+      },
+    });
 
-  const deliveryPassword = await bcrypt.hash("Delivery@123", 10);
-  await prisma.user.upsert({
-    where: { email: "delivery@grocery.test" },
-    update: { role: "DELIVERY" },
-    create: {
-      name: "Ravi Kumar",
-      email: "delivery@grocery.test",
-      phone: "9876543212",
-      password: deliveryPassword,
-      role: "DELIVERY",
-    },
-  });
+    const deliveryPassword = await bcrypt.hash("Delivery@123", 10);
+    await prisma.user.upsert({
+      where: { email: "delivery@grocery.test" },
+      update: { role: "DELIVERY" },
+      create: {
+        name: "Ravi Kumar",
+        email: "delivery@grocery.test",
+        phone: "9876543212",
+        password: deliveryPassword,
+        role: "DELIVERY",
+      },
+    });
+  }
 
-  const customer = await prisma.user.upsert({
-    where: { email: "customer@grocery.test" },
-    update: {},
-    create: {
-      name: "Sample Customer",
-      email: "customer@grocery.test",
-      phone: "9876500000",
-      password: customerPassword,
-      role: "CUSTOMER",
-    },
-  });
+  const customer = seedDemoUsers
+    ? await prisma.user.upsert({
+        where: { email: "customer@grocery.test" },
+        update: {},
+        create: {
+          name: "Sample Customer",
+          email: "customer@grocery.test",
+          phone: "9876500000",
+          password: customerPassword,
+          role: "CUSTOMER",
+        },
+      })
+    : null;
 
-  await prisma.address.upsert({
-    where: { id: "seed-address-1" },
-    update: {
-      line1: "Jail Road",
-      city: "Dibrugarh",
-      state: "Assam",
-      pincode: "786001",
-      latitude: 27.4728,
-      longitude: 94.9120,
-    },
-    create: {
-      id: "seed-address-1",
-      userId: customer.id,
-      label: "Home",
-      fullName: "Sample Customer",
-      phone: "9876500000",
-      line1: "Jail Road",
-      city: "Dibrugarh",
-      state: "Assam",
-      pincode: "786001",
-      latitude: 27.4728,
-      longitude: 94.9120,
-      isDefault: true,
-    },
-  });
+  if (customer) {
+    await prisma.address.upsert({
+      where: { id: "seed-address-1" },
+      update: {
+        line1: "Jail Road",
+        city: "Dibrugarh",
+        state: "Assam",
+        pincode: "786001",
+        latitude: 27.4728,
+        longitude: 94.9120,
+      },
+      create: {
+        id: "seed-address-1",
+        userId: customer.id,
+        label: "Home",
+        fullName: "Sample Customer",
+        phone: "9876500000",
+        line1: "Jail Road",
+        city: "Dibrugarh",
+        state: "Assam",
+        pincode: "786001",
+        latitude: 27.4728,
+        longitude: 94.9120,
+        isDefault: true,
+      },
+    });
+  }
 
   const categoryBySlug = new Map<string, string>();
   for (const c of categories) {
@@ -466,9 +494,17 @@ async function main() {
     },
   });
 
-  console.log(`Seed complete. Admin: ${admin.email} / Admin@12345`);
-  console.log(`Customer: ${customer.email} / Customer@123`);
-  console.log(`Delivery partner: delivery@grocery.test / Delivery@123`);
+  console.log(`Seed complete. Admin: ${admin.email}`);
+  if (process.env.SEED_ADMIN_PASSWORD) {
+    console.log("[seed] Admin password was set from SEED_ADMIN_PASSWORD.");
+  } else {
+    console.log("[seed] Admin password is the demo default (Admin@12345) — change it before going live.");
+  }
+  if (customer) {
+    console.log(`[seed] Demo customer: ${customer.email} / Customer@123`);
+  } else {
+    console.log("[seed] Demo users skipped (SEED_DEMO_USERS=false).");
+  }
 }
 
 main()
