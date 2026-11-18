@@ -229,9 +229,14 @@ docker buildx build --platform linux/amd64 --provenance=false --sbom=false \
 # on the VPS
 cd /opt/stacks/grocery-app
 git -C app pull
+# keep the deployed stack file in step with the repo
+cp app/deploy/vps/compose.yml ./compose.yml
 # write the new tag into compose.yml (image: grocery-app/web:<new-tag>)
 docker compose up -d web
 ```
+
+`compose.yml` is a copy, not a symlink, so the project directory keeps resolving
+`./app` correctly. Always refresh it after changing `deploy/vps/compose.yml`.
 
 Tag each release with a date (`2026.11.18`) and keep the previous image so you
 can roll back by pointing `image:` at the old tag and re-running
